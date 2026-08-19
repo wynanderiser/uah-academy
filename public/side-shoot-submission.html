@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAH Academy — Side Shoot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#EDE6D6;
+    --paper:#FBF8F2;
+    --ink:#2B2621;
+    --ink-soft:#5C544A;
+    --moss:#5C6B4F;
+    --moss-dark:#46543C;
+    --clay:#A15C3E;
+    --slate:#5B7C8D;
+    --line:#D9CFBC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--parchment);
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:56px 20px;
+  }
+  .page-layout{
+    display:flex;
+    gap:40px;
+    align-items:flex-start;
+    max-width:900px;
+    width:100%;
+  }
+  .wrap{width:100%;max-width:560px;flex-shrink:0;}
+
+  .sidebar{
+    width:260px;
+    flex-shrink:0;
+    position:sticky;
+    top:56px;
+  }
+  .sidebar-card{
+    background:var(--paper);
+    border-radius:2px;
+    padding:22px 22px 24px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+  }
+  .sidebar-eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--slate);
+    margin-bottom:14px;
+  }
+  .cues-list{
+    margin:0 0 20px 0;
+    padding:0;
+    list-style:none;
+  }
+  .cues-list li{
+    font-family:'Fraunces',serif;
+    font-style:italic;
+    font-size:15px;
+    line-height:1.5;
+    color:var(--ink);
+    margin-bottom:14px;
+    padding-left:14px;
+    border-left:2px solid var(--line);
+  }
+  .cues-list li:last-child{margin-bottom:0;}
+  .swatch-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+  }
+  .swatch-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:20px;
+  }
+  .swatch{
+    flex:1;
+    height:44px;
+    border-radius:2px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.15) inset, 0 2px 6px rgba(43,38,33,0.12);
+  }
+  .nudge-line{
+    font-size:13.5px;
+    line-height:1.55;
+    color:var(--moss-dark);
+    margin:0;
+    padding-top:16px;
+    border-top:1px solid var(--line);
+  }
+
+  @media (max-width: 860px){
+    .page-layout{flex-direction:column;gap:28px;}
+    .sidebar{width:100%;position:static;}
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:6px;height:6px;border-radius:50%;
+    background:var(--moss);
+    display:inline-block;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:32px;
+    line-height:1.15;
+    margin:0 0 10px 0;
+    letter-spacing:-0.01em;
+  }
+  p.lede{
+    font-size:15px;
+    color:var(--ink-soft);
+    line-height:1.55;
+    margin:0 0 10px 0;
+    max-width:46ch;
+  }
+  p.lede:last-of-type{margin-bottom:32px;}
+  p.lede b{font-weight:600;color:var(--ink);}
+
+  /* --- mounted upload frame: mitred-corner motif, nodding to the framing side of the business --- */
+  .mount{
+    position:relative;
+    background:var(--paper);
+    border-radius:2px;
+    padding:22px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+  }
+  .mount::before,.mount::after,
+  .frame-inner::before,.frame-inner::after{
+    content:"";
+    position:absolute;
+    width:18px;height:18px;
+    border:1.5px solid var(--ink);
+    opacity:0.55;
+  }
+  .mount::before{top:8px;left:8px;border-right:none;border-bottom:none;}
+  .mount::after{top:8px;right:8px;border-left:none;border-bottom:none;}
+  .frame-inner::before{bottom:8px;left:8px;border-right:none;border-top:none;}
+  .frame-inner::after{bottom:8px;right:8px;border-left:none;border-top:none;}
+  .frame-inner{position:absolute;inset:22px;pointer-events:none;}
+
+  .drop{
+    position:relative;
+    border:1px dashed var(--line);
+    border-radius:2px;
+    min-height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    cursor:pointer;
+    overflow:hidden;
+    background:
+      repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(43,38,33,0.02) 10px, rgba(43,38,33,0.02) 11px);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .drop:hover{border-color:var(--moss);}
+  .drop.has-image{border-style:solid; border-color:var(--line); cursor:default;}
+  .drop img{max-width:100%;max-height:340px;display:block;}
+  .drop-msg{padding:24px;color:var(--ink-soft);font-size:14px;line-height:1.6;}
+  .drop-msg b{color:var(--ink);font-weight:600;}
+  input[type=file]{display:none;}
+
+  .explain-label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-soft);
+    margin-top:18px;
+    margin-bottom:6px;
+  }
+  .explain-label span{font-weight:400;color:#8A8072;}
+  textarea#explanation{
+    width:100%;
+    font-family:'Work Sans',sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:10px 12px;
+    resize:vertical;
+    line-height:1.5;
+  }
+  textarea#explanation:focus{outline:none;border-color:var(--moss);}
+
+  .actions{display:flex;align-items:center;gap:12px;margin-top:18px;}
+  button{
+    font-family:'Work Sans',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    border:none;
+    border-radius:2px;
+    padding:12px 22px;
+    cursor:pointer;
+    transition:background .15s ease, transform .05s ease;
+  }
+  button:active{transform:translateY(1px);}
+  #submitBtn{background:var(--moss);color:#fff;}
+  #submitBtn:hover{background:var(--moss-dark);}
+  #submitBtn:disabled{background:#B9C2AE;cursor:not-allowed;}
+  #resetBtn{background:transparent;color:var(--ink-soft);text-decoration:underline;padding:12px 4px;display:none;}
+  #resetBtn:hover{color:var(--ink);}
+
+  .status{font-size:13px;color:var(--ink-soft);margin-top:10px;min-height:18px;}
+  .status.loading::after{content:"";}
+
+  /* --- feedback card --- */
+  #feedback{
+    margin-top:28px;
+    display:none;
+  }
+  .fb-card{
+    background:var(--paper);
+    border-radius:2px;
+    padding:26px 28px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+    animation:rise .35s ease both;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .fb-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .fb-praise .fb-label{color:var(--moss-dark);}
+  .fb-fixes .fb-label{color:var(--clay);}
+  .fb-encourage .fb-label{color:var(--slate);}
+  .fb-block{margin-bottom:20px;}
+  .fb-block:last-child{margin-bottom:0;}
+  .fb-block p{margin:0;font-size:15px;line-height:1.6;}
+  .fb-fixes ul{margin:4px 0 0 0;padding-left:20px;}
+  .fb-fixes li{font-size:15px;line-height:1.6;margin-bottom:8px;}
+  .fb-fixes li:last-child{margin-bottom:0;}
+  hr.rule{border:none;border-top:1px solid var(--line);margin:20px 0;}
+
+  .error{
+    display:none;
+    margin-top:18px;
+    padding:14px 16px;
+    background:#F6E9E4;
+    border-left:3px solid var(--clay);
+    font-size:13.5px;
+    color:var(--ink);
+    line-height:1.5;
+  }
+
+  .chat-wrap{margin-top:20px;padding-top:20px;border-top:1px solid var(--line);}
+  .chat-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--slate);
+    margin-bottom:12px;
+  }
+  .chat-log{margin-bottom:12px;}
+  .chat-msg{
+    font-size:14.5px;
+    line-height:1.55;
+    margin-bottom:12px;
+    max-width:88%;
+  }
+  .chat-msg:last-child{margin-bottom:0;}
+  .chat-msg.student{
+    margin-left:auto;
+    background:var(--parchment);
+    padding:10px 14px;
+    border-radius:10px 10px 2px 10px;
+  }
+  .chat-msg.tutor{
+    background:var(--paper);
+    border:1px solid var(--line);
+    padding:10px 14px;
+    border-radius:10px 10px 10px 2px;
+  }
+  .chat-msg .who{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--ink-soft);
+    margin-bottom:3px;
+    display:block;
+  }
+  .chat-input-row{display:flex;gap:8px;align-items:flex-end;}
+  textarea#chatInput{
+    flex:1;
+    font-family:'Work Sans',sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:9px 12px;
+    resize:none;
+    line-height:1.5;
+    min-height:40px;
+  }
+  textarea#chatInput:focus{outline:none;border-color:var(--slate);}
+  #chatSendBtn{
+    background:var(--slate);
+    color:#fff;
+    padding:10px 16px;
+    flex-shrink:0;
+  }
+  #chatSendBtn:hover{background:#496879;}
+  #chatSendBtn:disabled{background:#B7C4CB;cursor:not-allowed;}
+
+  .more-detail-row{margin-top:18px;text-align:center;}
+  #moreDetailBtn{
+    background:transparent;
+    color:var(--clay);
+    border:1px solid var(--clay);
+    font-weight:600;
+    font-size:13px;
+    padding:9px 18px;
+  }
+  #moreDetailBtn:hover{background:var(--clay);color:#fff;}
+  #moreDetailBtn:disabled{opacity:0.5;cursor:not-allowed;}
+  .fb-more .fb-label{color:var(--clay);}
+  .fb-more{
+    margin-top:20px;
+    padding-top:20px;
+    border-top:1px solid var(--line);
+  }
+  .fb-more ul{margin:4px 0 0 0;padding-left:20px;}
+  .fb-more li{font-size:15px;line-height:1.6;margin-bottom:8px;}
+  .fb-more li:last-child{margin-bottom:0;}
+</style>
+</head>
+<body>
+<div class="page-layout">
+<div class="wrap">
+  <div class="eyebrow" id="themeEyebrow">UAH Academy</div>
+  <h1 id="themeTitle">Loading…</h1>
+  <p class="lede"><b>Brief:</b> <span id="themeBrief"></span></p>
+  <p class="lede"><b>Ready to submit?</b> Natural light, straight-on photo, plain background works best when you photograph it.</p>
+
+  <div class="mount">
+    <div class="drop" id="drop">
+      <div class="drop-msg" id="dropMsg"><b>Click to choose a photo</b><br>or drag one in</div>
+    </div>
+    <div class="frame-inner"></div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*">
+
+  <label for="explanation" class="explain-label">Add an explanation of your submission <span>(optional)</span></label>
+  <textarea id="explanation" placeholder="e.g. I wanted the colours really bold and warm…" rows="2"></textarea>
+
+  <div class="actions">
+    <button id="submitBtn" disabled>Get feedback</button>
+    <button id="resetBtn">Start over</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="error" id="error"></div>
+
+  <div id="feedback"></div>
+  <div class="more-detail-row" id="moreDetailRow" style="display:none;">
+    <button id="moreDetailBtn">Want more detail? I can go deeper on this.</button>
+  </div>
+
+  <div class="chat-wrap" id="chatWrap" style="display:none;">
+    <div class="chat-label">Talk it through</div>
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-input-row">
+      <textarea id="chatInput" rows="2" placeholder="Tell the tutor more — e.g. explain a detail, ask a question…"></textarea>
+      <button id="chatSendBtn">Send</button>
+    </div>
+  </div>
+
+  <div class="chat-wrap" id="revisionWrap" style="display:none;">
+    <div class="chat-label">Made changes?</div>
+    <p style="font-size:14px;color:var(--ink-soft);margin:0 0 12px 0;">If you've worked on it since, show the tutor your revised piece.</p>
+    <input type="file" id="revisionInput" accept="image/*" style="display:none;">
+    <button id="revisionUploadBtn" style="background:var(--slate);color:#fff;">Upload revised photo</button>
+  </div>
+
+  <div id="revisionFeedback"></div>
+</div>
+
+<aside class="sidebar">
+  <div class="sidebar-card">
+    <div class="sidebar-eyebrow">Need a spark?</div>
+    <ul class="cues-list" id="cuesList"></ul>
+    <div class="swatch-label">Mood, not method — a few directions</div>
+    <div class="swatch-row" id="swatchRow"></div>
+    <p class="nudge-line" id="nudgeLine"></p>
+  </div>
+</aside>
+</div>
+
+<script>
+const THEMES = {
+  moon: {
+    title: "A Pastel Moon",
+    brief: "Soft gradients, one quiet light source. Let the colours stay gentle — this is about calm, not drama.",
+    cues: [
+      "The moment before the light fades completely",
+      "One still surface catching what light there is",
+      "The hush right before something happens"
+    ],
+    swatches: [["#3A3554","#E8C9B8"], ["#5B4E6E","#F3E0C7"], ["#232842","#8A93AE"]],
+    nudge: "No wrong way to start here — just make a mark and see where it leads."
+  },
+  sunset: {
+    title: "An African Sunset",
+    brief: "Bold, warm colour and a strong horizon. Let it feel hot — this is about real heat and contrast, not subtlety.",
+    cues: [
+      "The last few minutes before the colour drops out of the sky",
+      "Heat you can almost feel in the colour itself",
+      "One dark shape cutting across all that warmth"
+    ],
+    swatches: [["#7A2E1F","#F4C97A"], ["#5C2A3E","#C98A6B"], ["#8A4612","#3A1712"]],
+    nudge: "This one rewards boldness — don't be afraid of strong colour."
+  },
+  coastline: {
+    title: "A Stormy Coastline",
+    brief: "Rough, choppy water and heavy, energetic marks. Let it feel wild — this is about mood, not calm precision.",
+    cues: [
+      "The second right before a wave breaks",
+      "Grey that isn't just one grey",
+      "Something small holding steady against all that motion"
+    ],
+    swatches: [["#2B3440","#8598A1"], ["#1B2E33","#4C6B6E"], ["#3E4A52","#D8E0E3"]],
+    nudge: "This one rewards a looser hand — don't tidy it up too soon."
+  },
+  garden: {
+    title: "A Quiet Garden Corner",
+    brief: "Layered greens and soft shapes. Take your time — this is about gentle looking, not speed.",
+    cues: [
+      "A corner nobody else would think to paint",
+      "The gap between two leaves where the light gets through",
+      "Green that's really six or seven greens at once"
+    ],
+    swatches: [["#3F5233","#B7C79A"], ["#5C6B3E","#D9C48A"], ["#28381F","#7A9468"]],
+    nudge: "There's no rush here — this one's about noticing, not finishing fast."
+  },
+  cityscape: {
+    title: "A Midnight Cityscape",
+    brief: "Hard edges and one warm light in the dark. Let the shapes stay simple — this is about contrast and quiet drama.",
+    cues: [
+      "One lit window among a lot of dark ones",
+      "The shapes buildings make once you stop reading them as buildings",
+      "A quiet that only exists this late"
+    ],
+    swatches: [["#161B2E","#F4E7B8"], ["#0E1120","#3B2E52"], ["#1A2238","#5C6B8A"]],
+    nudge: "Keep it simple — a few honest shapes will do more than a lot of detail."
+  }
+};
+
+const urlParams = new URLSearchParams(window.location.search);
+const themeSlug = (urlParams.get('theme') && THEMES[urlParams.get('theme')]) ? urlParams.get('theme') : 'sunset';
+const theme = THEMES[themeSlug];
+
+document.getElementById('themeEyebrow').textContent = 'UAH Academy';
+document.getElementById('themeTitle').textContent = theme.title;
+document.getElementById('themeBrief').textContent = theme.brief;
+
+// --- populate the inspiration sidebar ---
+const cuesList = document.getElementById('cuesList');
+theme.cues.forEach(c => {
+  const li = document.createElement('li');
+  li.textContent = c;
+  cuesList.appendChild(li);
+});
+const swatchRow = document.getElementById('swatchRow');
+theme.swatches.forEach(([c1, c2]) => {
+  const div = document.createElement('div');
+  div.className = 'swatch';
+  div.style.background = `linear-gradient(155deg, ${c1}, ${c2})`;
+  swatchRow.appendChild(div);
+});
+document.getElementById('nudgeLine').textContent = theme.nudge;
+
+const drop = document.getElementById('drop');
+const dropMsg = document.getElementById('dropMsg');
+const fileInput = document.getElementById('fileInput');
+const submitBtn = document.getElementById('submitBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusEl = document.getElementById('status');
+const errorEl = document.getElementById('error');
+const feedbackEl = document.getElementById('feedback');
+const moreDetailRow = document.getElementById('moreDetailRow');
+const revisionWrap = document.getElementById('revisionWrap');
+const revisionInput = document.getElementById('revisionInput');
+const revisionUploadBtn = document.getElementById('revisionUploadBtn');
+const revisionFeedbackEl = document.getElementById('revisionFeedback');
+let revisionRound = 0;
+const MAX_REVISION_ROUNDS = 3;
+const chatWrap = document.getElementById('chatWrap');
+const chatLog = document.getElementById('chatLog');
+const chatInput = document.getElementById('chatInput');
+const chatSendBtn = document.getElementById('chatSendBtn');
+
+let conversationHistory = [];
+const moreDetailBtn = document.getElementById('moreDetailBtn');
+
+let imageBase64 = null;
+let imageMediaType = null;
+let priorImageBase64 = null;
+let priorImageMediaType = null;
+let lastFeedback = null;
+let lastDetails = null;
+
+drop.addEventListener('click', () => fileInput.click());
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.style.borderColor = '#5C6B4F'; });
+drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
+drop.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file){
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      // downscale to keep the request small/fast
+      const maxDim = 1100;
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      imageBase64 = dataUrl.split(',')[1];
+      imageMediaType = 'image/jpeg';
+
+      drop.classList.add('has-image');
+      drop.innerHTML = '';
+      const preview = document.createElement('img');
+      preview.src = dataUrl;
+      drop.appendChild(preview);
+
+      submitBtn.disabled = false;
+      resetBtn.style.display = 'inline-block';
+      feedbackEl.style.display = 'none';
+      moreDetailRow.style.display = 'none';
+      chatWrap.style.display = 'none';
+      chatLog.innerHTML = '';
+      conversationHistory = [];
+      lastFeedback = null;
+      lastDetails = null;
+      priorImageBase64 = null;
+      priorImageMediaType = null;
+      revisionWrap.style.display = 'none';
+      revisionFeedbackEl.innerHTML = '';
+      revisionRound = 0;
+      errorEl.style.display = 'none';
+      statusEl.textContent = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+resetBtn.addEventListener('click', () => {
+  imageBase64 = null;
+  drop.classList.remove('has-image');
+  drop.innerHTML = '<div class="drop-msg"><b>Click to choose a photo</b><br>or drag one in</div>';
+  submitBtn.disabled = true;
+  resetBtn.style.display = 'none';
+  feedbackEl.style.display = 'none';
+  moreDetailRow.style.display = 'none';
+  chatWrap.style.display = 'none';
+  chatLog.innerHTML = '';
+  conversationHistory = [];
+  lastFeedback = null;
+  lastDetails = null;
+  priorImageBase64 = null;
+  priorImageMediaType = null;
+  revisionWrap.style.display = 'none';
+  revisionFeedbackEl.innerHTML = '';
+  revisionRound = 0;
+  errorEl.style.display = 'none';
+  statusEl.textContent = '';
+  fileInput.value = '';
+});
+
+
+
+
+submitBtn.addEventListener('click', async () => {
+  if (!imageBase64) return;
+  submitBtn.disabled = true;
+  errorEl.style.display = 'none';
+  feedbackEl.style.display = 'none';
+  statusEl.textContent = 'Looking closely…';
+
+  const explanationText = document.getElementById('explanation').value.trim();
+
+  try {
+    const response = await fetch("/api/sideshoot/critique", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        theme: themeSlug,
+        image: imageBase64,
+        mediaType: imageMediaType,
+        explanation: explanationText
+      })
+    });
+
+    const parsed = await response.json();
+    if (!response.ok) throw new Error(parsed.error || 'Request failed (' + response.status + ')');
+
+    renderFeedback(parsed);
+    lastFeedback = parsed;
+    priorImageBase64 = imageBase64;
+    priorImageMediaType = imageMediaType;
+    moreDetailRow.style.display = 'block';
+    moreDetailBtn.disabled = false;
+    moreDetailBtn.textContent = 'Want more detail? I can go deeper on this.';
+    chatWrap.style.display = 'block';
+    revisionWrap.style.display = 'block';
+    statusEl.textContent = '';
+  } catch (err) {
+    errorEl.textContent = "Something went wrong getting feedback. [" + (err.name || 'Error') + "] " + err.message + ". Give it another try.";
+    errorEl.style.display = 'block';
+    statusEl.textContent = '';
+    console.error('Feedback request failed:', err);
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+function renderFeedback(fb){
+  feedbackEl.innerHTML = `
+    <div class="fb-card">
+      <div class="fb-block fb-praise">
+        <div class="fb-label">What's working</div>
+        <p>${escapeHtml(fb.praise || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-fixes">
+        <div class="fb-label">Try this</div>
+        <p>${escapeHtml(fb.fix || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-encourage">
+        <div class="fb-label">Keep going</div>
+        <p>${escapeHtml(fb.encouragement || '')}</p>
+      </div>
+    </div>
+  `;
+  feedbackEl.style.display = 'block';
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+moreDetailBtn.addEventListener('click', async () => {
+  if (!imageBase64 || !lastFeedback) return;
+  moreDetailBtn.disabled = true;
+  moreDetailBtn.textContent = 'Thinking it through…';
+  errorEl.style.display = 'none';
+
+  const explanationText = document.getElementById('explanation').value.trim();
+
+  try {
+    const response = await fetch("/api/sideshoot/more-detail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        theme: themeSlug,
+        image: imageBase64,
+        mediaType: imageMediaType,
+        explanation: explanationText,
+        lastFeedback: lastFeedback
+      })
+    });
+
+    const parsed = await response.json();
+    if (!response.ok) throw new Error(parsed.error || 'Request failed (' + response.status + ')');
+    if (!parsed.details) {
+      throw new Error('Could not read the extra detail.');
+    }
+
+    renderMoreDetail(parsed.details);
+    lastDetails = parsed.details;
+    moreDetailRow.style.display = 'none';
+  } catch (err) {
+    errorEl.textContent = "Couldn't get more detail. [" + (err.name || 'Error') + "] " + err.message + ". Give it another try.";
+    errorEl.style.display = 'block';
+    moreDetailBtn.disabled = false;
+    moreDetailBtn.textContent = 'Want more detail? I can go deeper on this.';
+    console.error('More-detail request failed:', err);
+  }
+});
+
+revisionUploadBtn.addEventListener('click', () => revisionInput.click());
+revisionInput.addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) handleRevisionFile(e.target.files[0]);
+});
+
+function handleRevisionFile(file){
+  if (revisionRound >= MAX_REVISION_ROUNDS) return;
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1100;
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      const revisedBase64 = dataUrl.split(',')[1];
+      submitRevision(revisedBase64, 'image/jpeg', dataUrl);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitRevision(revisedBase64, mediaType, previewDataUrl){
+  revisionUploadBtn.disabled = true;
+  revisionUploadBtn.textContent = 'Looking closely…';
+  errorEl.style.display = 'none';
+
+  try {
+    const response = await fetch("/api/sideshoot/revision", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        theme: themeSlug,
+        priorImage: priorImageBase64,
+        priorMediaType: priorImageMediaType,
+        image: revisedBase64,
+        mediaType: mediaType
+      })
+    });
+
+    const parsed = await response.json();
+    if (!response.ok) throw new Error(parsed.error || 'Request failed (' + response.status + ')');
+
+    revisionRound += 1;
+    renderRevisionFeedback(parsed, previewDataUrl, revisionRound);
+
+    // this round's new image becomes the baseline for the next comparison
+    priorImageBase64 = revisedBase64;
+    priorImageMediaType = mediaType;
+    lastFeedback = parsed;
+    lastDetails = null;
+
+    if (revisionRound >= MAX_REVISION_ROUNDS) {
+      renderRevisionClosing();
+      revisionWrap.style.display = 'none';
+    }
+  } catch (err) {
+    errorEl.textContent = "Something went wrong looking at the revision. [" + (err.name || 'Error') + "] " + err.message + ". Give it another try.";
+    errorEl.style.display = 'block';
+    console.error('Revision request failed:', err);
+  } finally {
+    revisionUploadBtn.disabled = false;
+    revisionUploadBtn.textContent = 'Upload revised photo';
+    revisionInput.value = '';
+  }
+}
+
+function renderRevisionClosing(){
+  const wrap = document.createElement('div');
+  wrap.className = 'fb-card';
+  wrap.style.marginTop = '20px';
+  wrap.style.background = 'var(--parchment)';
+  wrap.innerHTML = `<p style="margin:0;font-size:15px;line-height:1.6;">You have brought this drawing/painting a lot further forward. Carry these techniques forward into the next lesson and you will see the benefit. If you would like to ask any questions please do.</p>`;
+  revisionFeedbackEl.appendChild(wrap);
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderRevisionFeedback(fb, previewDataUrl, round){
+  const wrap = document.createElement('div');
+  wrap.style.marginTop = '20px';
+  wrap.innerHTML = `
+    <div class="eyebrow" style="margin-bottom:10px;">Revised attempt ${round}</div>
+    <div class="fb-card">
+      <div class="fb-block fb-praise">
+        <div class="fb-label">What's changed</div>
+        <p>${escapeHtml(fb.praise || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-fixes">
+        <div class="fb-label">Try this next</div>
+        <p>${escapeHtml(fb.fix || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-encourage">
+        <div class="fb-label">Keep going</div>
+        <p>${escapeHtml(fb.encouragement || '')}</p>
+      </div>
+    </div>
+  `;
+  revisionFeedbackEl.appendChild(wrap);
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function buildInitialAssistantSummary(){
+  let parts = [];
+  if (lastFeedback) {
+    parts.push(lastFeedback.praise + ' ' + lastFeedback.fix + ' ' + lastFeedback.encouragement);
+  }
+  if (lastDetails && lastDetails.length) {
+    const list = Array.isArray(lastDetails) ? lastDetails : [lastDetails];
+    parts.push(list.join(' '));
+  }
+  return parts.join(' ');
+}
+
+function appendChatMessage(role, text){
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (role === 'user' ? 'student' : 'tutor');
+  const who = document.createElement('span');
+  who.className = 'who';
+  who.textContent = role === 'user' ? 'You' : 'Tutor';
+  const body = document.createElement('div');
+  body.textContent = text;
+  div.appendChild(who);
+  div.appendChild(body);
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+chatSendBtn.addEventListener('click', sendChatMessage);
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
+});
+
+async function sendChatMessage(){
+  const message = chatInput.value.trim();
+  if (!message || !imageBase64) return;
+
+  // Seed the conversation the first time the student sends a message
+  if (conversationHistory.length === 0) {
+    const explanationText = document.getElementById('explanation').value.trim();
+    let seedUserText = `Please give feedback on this piece for the Side Shoot "${theme.title}".`;
+    if (explanationText) {
+      seedUserText += ' The student added this note about their submission: "' + explanationText + '"';
+    }
+    conversationHistory.push({
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: imageMediaType, data: imageBase64 } },
+        { type: 'text', text: seedUserText }
+      ]
+    });
+    conversationHistory.push({
+      role: 'assistant',
+      content: buildInitialAssistantSummary()
+    });
+  }
+
+  appendChatMessage('user', message);
+  conversationHistory.push({ role: 'user', content: message });
+  chatInput.value = '';
+  chatInput.disabled = true;
+  chatSendBtn.disabled = true;
+  chatSendBtn.textContent = '…';
+
+  try {
+    const response = await fetch("/api/sideshoot/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        theme: themeSlug,
+        messages: conversationHistory
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Request failed (' + response.status + ')');
+
+    const replyText = data.reply.trim();
+    conversationHistory.push({ role: 'assistant', content: replyText });
+    appendChatMessage('assistant', replyText);
+  } catch (err) {
+    errorEl.textContent = "Something went wrong in the conversation. [" + (err.name || 'Error') + "] " + err.message + ". Give it another try.";
+    errorEl.style.display = 'block';
+    console.error('Chat request failed:', err);
+    conversationHistory.pop(); // remove the unanswered user turn so a retry doesn't duplicate it oddly
+  } finally {
+    chatInput.disabled = false;
+    chatSendBtn.disabled = false;
+    chatSendBtn.textContent = 'Send';
+    chatInput.focus();
+  }
+}
+
+function renderMoreDetail(details){
+  const list = Array.isArray(details) ? details : [details];
+  const itemsHtml = list.map(d => '<li>' + escapeHtml(d) + '</li>').join('');
+  const block = document.createElement('div');
+  block.className = 'fb-more';
+  block.innerHTML = `
+    <div class="fb-label">More detail</div>
+    <ul>${itemsHtml}</ul>
+  `;
+  feedbackEl.querySelector('.fb-card').appendChild(block);
+}
+</script>
+</body>
+</html>
