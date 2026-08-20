@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAH Academy — Colour Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#EDE6D6;
+    --paper:#FBF8F2;
+    --ink:#2B2621;
+    --ink-soft:#5C544A;
+    --moss:#5C6B4F;
+    --moss-dark:#46543C;
+    --clay:#A15C3E;
+    --slate:#5B7C8D;
+    --line:#D9CFBC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--parchment);
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:56px 20px;
+  }
+  .wrap{width:100%;max-width:640px;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--moss);display:inline-block;}
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:32px;
+    line-height:1.15;
+    margin:0 0 10px 0;
+    letter-spacing:-0.01em;
+  }
+  p.lede{font-size:15px;color:var(--ink-soft);line-height:1.55;margin:0 0 32px 0;max-width:52ch;}
+
+  .mount{
+    position:relative;
+    background:var(--paper);
+    border-radius:2px;
+    padding:22px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+  }
+  .mount::before,.mount::after,.frame-inner::before,.frame-inner::after{
+    content:"";position:absolute;width:18px;height:18px;border:1.5px solid var(--ink);opacity:0.55;
+  }
+  .mount::before{top:8px;left:8px;border-right:none;border-bottom:none;}
+  .mount::after{top:8px;right:8px;border-left:none;border-bottom:none;}
+  .frame-inner::before{bottom:8px;left:8px;border-right:none;border-top:none;}
+  .frame-inner::after{bottom:8px;right:8px;border-left:none;border-top:none;}
+  .frame-inner{position:absolute;inset:22px;pointer-events:none;}
+
+  .drop{
+    position:relative;
+    border:1px dashed var(--line);
+    border-radius:2px;
+    min-height:200px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    cursor:pointer;
+    overflow:hidden;
+    background:repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(43,38,33,0.02) 10px, rgba(43,38,33,0.02) 11px);
+    transition:border-color .15s ease;
+  }
+  .drop:hover{border-color:var(--moss);}
+  .drop.has-image{border-style:solid;border-color:var(--line);cursor:default;}
+  .drop img{max-width:100%;max-height:320px;display:block;}
+  .drop-msg{padding:24px;color:var(--ink-soft);font-size:14px;line-height:1.6;}
+  .drop-msg b{color:var(--ink);font-weight:600;}
+  input[type=file]{display:none;}
+
+  #resultArea{display:none;margin-top:32px;}
+
+  .dominant-row{display:flex;align-items:center;gap:16px;margin-bottom:28px;}
+  .dominant-swatch{width:64px;height:64px;border-radius:2px;flex-shrink:0;box-shadow:0 2px 6px rgba(43,38,33,0.15);}
+  .dominant-label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:4px;}
+  .dominant-hex{font-family:'Fraunces',serif;font-size:20px;color:var(--ink);}
+
+  .mode-tabs{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap;}
+  .mode-tab{
+    font-family:'Work Sans',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    background:var(--paper);
+    color:var(--ink-soft);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:8px 16px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .mode-tab:hover{border-color:var(--moss);}
+  .mode-tab.active{background:var(--moss);color:#fff;border-color:var(--moss);}
+
+  .companion-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;}
+  .companion-card{flex:1;min-width:120px;text-align:center;}
+  .companion-swatch{width:100%;aspect-ratio:1;border-radius:2px;box-shadow:0 2px 6px rgba(43,38,33,0.15);margin-bottom:8px;}
+  .companion-hex{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);}
+
+  .mode-note{font-size:13.5px;color:var(--ink-soft);line-height:1.55;margin-top:20px;padding-top:20px;border-top:1px solid var(--line);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">UAH Academy · Colour Companion</div>
+  <h1>Find its colour companions.</h1>
+  <p class="lede">Upload your piece and this pulls out its strongest colour, then shows what would sit boldly or harmoniously alongside it — not a generic wheel, your own colour's real companions.</p>
+
+  <div class="mount">
+    <div class="drop" id="drop">
+      <div class="drop-msg" id="dropMsg"><b>Click to choose a photo</b><br>or drag one in</div>
+    </div>
+    <div class="frame-inner"></div>
+  </div>
+  <input type="file" id="fileInput" accept="image/*">
+
+  <div id="resultArea">
+    <div class="dominant-row">
+      <div class="dominant-swatch" id="dominantSwatch"></div>
+      <div>
+        <div class="dominant-label">Your dominant colour</div>
+        <div class="dominant-hex" id="dominantHex"></div>
+      </div>
+    </div>
+
+    <div class="mode-tabs" id="modeTabs">
+      <button class="mode-tab active" data-mode="complementary">Complementary</button>
+      <button class="mode-tab" data-mode="analogous">Analogous</button>
+      <button class="mode-tab" data-mode="triadic">Triadic</button>
+      <button class="mode-tab" data-mode="split">Split-Complementary</button>
+    </div>
+
+    <div class="companion-row" id="companionRow"></div>
+    <p class="mode-note" id="modeNote"></p>
+  </div>
+</div>
+
+<canvas id="workCanvas" style="display:none;"></canvas>
+
+<script>
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const resultArea = document.getElementById('resultArea');
+const dominantSwatch = document.getElementById('dominantSwatch');
+const dominantHex = document.getElementById('dominantHex');
+const modeTabs = document.getElementById('modeTabs');
+const companionRow = document.getElementById('companionRow');
+const modeNote = document.getElementById('modeNote');
+const workCanvas = document.getElementById('workCanvas');
+
+let dominantHSL = null; // {h, s, l}
+let currentMode = 'complementary';
+
+drop.addEventListener('click', () => fileInput.click());
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.style.borderColor = '#5C6B4F'; });
+drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
+drop.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file){
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => loadImageIntoTool(e.target.result);
+  reader.readAsDataURL(file);
+}
+
+function loadImageIntoTool(dataUrl){
+  const img = new Image();
+  img.onload = () => {
+    drop.classList.add('has-image');
+    drop.innerHTML = '';
+    const preview = document.createElement('img');
+    preview.src = dataUrl;
+    drop.appendChild(preview);
+
+    dominantHSL = extractDominantColor(img);
+    showResults();
+  };
+  img.src = dataUrl;
+}
+
+// If arriving from a submission page's "Try the Colour Companion" link, load that photo automatically
+(function checkForHandoff(){
+  const raw = localStorage.getItem('uah_colour_handoff');
+  if (!raw) return;
+  localStorage.removeItem('uah_colour_handoff'); // one-time use, don't reload stale data on a later visit
+  try {
+    const data = JSON.parse(raw);
+    const dataUrl = `data:${data.mediaType};base64,${data.image}`;
+    loadImageIntoTool(dataUrl);
+    if (data.fromTheme) {
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size:12px;color:var(--ink-soft);margin-top:10px;font-style:italic;';
+      note.textContent = `Brought over from your "${data.fromTheme}" submission.`;
+      drop.parentElement.appendChild(note);
+    }
+  } catch (e) {
+    console.error('Could not load handed-off image:', e);
+  }
+})();
+
+function extractDominantColor(img){
+  const size = 100;
+  workCanvas.width = size;
+  workCanvas.height = size;
+  const ctx = workCanvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, size, size);
+  const data = ctx.getImageData(0, 0, size, size).data;
+
+  // bucket by hue (24 buckets of 15deg), weighted by saturation so vivid colours dominate over dull background
+  const buckets = new Array(24).fill(0).map(() => ({ weight: 0, hSum: 0, sSum: 0, lSum: 0, count: 0 }));
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i+1], b = data[i+2];
+    const [h, s, l] = rgbToHsl(r, g, b);
+    if (s < 0.12) continue; // skip near-grey/white/black pixels, they rarely represent "the colour"
+    if (l < 0.06 || l > 0.96) continue; // skip near-black/near-white
+    const bucketIdx = Math.floor(h / 15) % 24;
+    const weight = s; // more saturated pixels count more
+    buckets[bucketIdx].weight += weight;
+    buckets[bucketIdx].hSum += h * weight;
+    buckets[bucketIdx].sSum += s * weight;
+    buckets[bucketIdx].lSum += l * weight;
+    buckets[bucketIdx].count += 1;
+  }
+
+  let best = buckets[0];
+  for (const b of buckets) if (b.weight > best.weight) best = b;
+
+  if (best.weight === 0) {
+    // fallback: genuinely low-saturation image, just average everything
+    let rSum=0,gSum=0,bSum=0,n=0;
+    for (let i=0;i<data.length;i+=4){ rSum+=data[i]; gSum+=data[i+1]; bSum+=data[i+2]; n++; }
+    const [h,s,l] = rgbToHsl(rSum/n, gSum/n, bSum/n);
+    return { h, s: Math.max(s,0.25), l: Math.min(Math.max(l,0.35),0.65) };
+  }
+
+  return {
+    h: best.hSum / best.weight,
+    s: Math.min(best.sSum / best.weight, 1),
+    l: Math.min(Math.max(best.lSum / best.weight, 0.3), 0.7)
+  };
+}
+
+function rgbToHsl(r, g, b){
+  r/=255; g/=255; b/=255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if (max === min) { h = 0; s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h = (g-b)/d + (g<b?6:0); break;
+      case g: h = (b-r)/d + 2; break;
+      case b: h = (r-g)/d + 4; break;
+    }
+    h *= 60;
+  }
+  return [h, s, l];
+}
+
+function hslToHex(h, s, l){
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2*l - 1)) * s;
+  const x = c * (1 - Math.abs((h/60) % 2 - 1));
+  const m = l - c/2;
+  let r,g,b;
+  if (h < 60) [r,g,b] = [c,x,0];
+  else if (h < 120) [r,g,b] = [x,c,0];
+  else if (h < 180) [r,g,b] = [0,c,x];
+  else if (h < 240) [r,g,b] = [0,x,c];
+  else if (h < 300) [r,g,b] = [x,0,c];
+  else [r,g,b] = [c,0,x];
+  const toHex = (v) => Math.round((v+m)*255).toString(16).padStart(2,'0');
+  return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+
+const MODE_CONFIG = {
+  complementary: { offsets: [180], note: "The colour directly opposite on the wheel — the boldest possible contrast against your dominant colour." },
+  analogous: { offsets: [-30, 30], note: "Neighbours on the wheel — colours that sit comfortably alongside yours without fighting it." },
+  triadic: { offsets: [120, 240], note: "Two colours evenly spaced from yours — vibrant together, balanced rather than chaotic." },
+  split: { offsets: [150, 210], note: "Two colours either side of the true complementary — nearly as bold, a touch gentler." }
+};
+
+function showResults(){
+  resultArea.style.display = 'block';
+  const hex = hslToHex(dominantHSL.h, dominantHSL.s, dominantHSL.l);
+  dominantSwatch.style.background = hex;
+  dominantHex.textContent = hex.toUpperCase();
+  renderCompanions();
+}
+
+function renderCompanions(){
+  const config = MODE_CONFIG[currentMode];
+  companionRow.innerHTML = '';
+
+  const dominantCard = document.createElement('div');
+  dominantCard.className = 'companion-card';
+  dominantCard.innerHTML = `<div class="companion-swatch" style="background:${hslToHex(dominantHSL.h, dominantHSL.s, dominantHSL.l)}"></div><div class="companion-hex">${hslToHex(dominantHSL.h, dominantHSL.s, dominantHSL.l).toUpperCase()} (yours)</div>`;
+  companionRow.appendChild(dominantCard);
+
+  config.offsets.forEach(offset => {
+    const h = dominantHSL.h + offset;
+    const hex = hslToHex(h, dominantHSL.s, dominantHSL.l);
+    const card = document.createElement('div');
+    card.className = 'companion-card';
+    card.innerHTML = `<div class="companion-swatch" style="background:${hex}"></div><div class="companion-hex">${hex.toUpperCase()}</div>`;
+    companionRow.appendChild(card);
+  });
+
+  modeNote.textContent = config.note;
+}
+
+modeTabs.addEventListener('click', (e) => {
+  const btn = e.target.closest('.mode-tab');
+  if (!btn) return;
+  modeTabs.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  currentMode = btn.dataset.mode;
+  renderCompanions();
+});
+</script>
+</body>
+</html>
