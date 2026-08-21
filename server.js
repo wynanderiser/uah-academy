@@ -2,8 +2,49 @@ const express = require('express');
 const path = require('path');
 
 const app = express();
+app.set('trust proxy', 1); // so req.ip reflects the real visitor's address behind Render's proxy
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ============ FREE-TIER SAFETY NET ============
+// Side Shoots are free, no-account-required entry points, which means they're the one
+// surface a malicious visitor could hammer to run up Anthropic API costs. This isn't
+// a substitute for real per-account limits (that arrives once real accounts exist) —
+// it's a stopgap that caps worst-case exposure in the meantime.
+const RATE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+const PER_IP_LIMIT = 20; // generous for one honest person genuinely working through a piece (critique + detail + a few chat replies + a couple of revisions)
+const GLOBAL_DAILY_LIMIT = 300; // hard backstop regardless of how per-IP limiting gets circumvented (VPNs, incognito, etc.)
+
+const ipHits = new Map(); // ip -> { count, windowStart }
+let globalCount = 0;
+let globalWindowStart = Date.now();
+
+function sideshootRateLimit(req, res, next) {
+  const now = Date.now();
+
+  if (now - globalWindowStart > RATE_WINDOW_MS) {
+    globalCount = 0;
+    globalWindowStart = now;
+  }
+  if (globalCount >= GLOBAL_DAILY_LIMIT) {
+    return res.status(429).json({ error: 'This tool has reached its daily limit for free use. Please try again tomorrow, or enrol in UAH Academy for full access.' });
+  }
+
+  const ip = req.ip;
+  let entry = ipHits.get(ip);
+  if (!entry || now - entry.windowStart > RATE_WINDOW_MS) {
+    entry = { count: 0, windowStart: now };
+  }
+  if (entry.count >= PER_IP_LIMIT) {
+    return res.status(429).json({ error: "You've reached today's limit for free use from this connection. Enrol in UAH Academy to continue." });
+  }
+
+  entry.count += 1;
+  ipHits.set(ip, entry);
+  globalCount += 1;
+  next();
+}
+
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = 'claude-sonnet-4-6';
@@ -218,7 +259,7 @@ async function callClaudeMessages(systemPrompt, messages, maxTokens, expectJSON 
   return parsed;
 }
 
-app.post('/api/sideshoot/critique', async (req, res) => {
+app.post('/api/sideshoot/critique', sideshootRateLimit, async (req, res) => {
   try {
     const { theme: themeSlug, image, mediaType, explanation } = req.body;
     if (!image || !mediaType) return res.status(400).json({ error: 'Missing image.' });
@@ -237,7 +278,7 @@ app.post('/api/sideshoot/critique', async (req, res) => {
   }
 });
 
-app.post('/api/sideshoot/more-detail', async (req, res) => {
+app.post('/api/sideshoot/more-detail', sideshootRateLimit, async (req, res) => {
   try {
     const { theme: themeSlug, image, mediaType, explanation, lastFeedback } = req.body;
     if (!image || !mediaType || !lastFeedback) return res.status(400).json({ error: 'Missing data.' });
@@ -257,7 +298,7 @@ app.post('/api/sideshoot/more-detail', async (req, res) => {
   }
 });
 
-app.post('/api/sideshoot/revision', async (req, res) => {
+app.post('/api/sideshoot/revision', sideshootRateLimit, async (req, res) => {
   try {
     const { theme: themeSlug, priorImage, priorMediaType, image, mediaType } = req.body;
     if (!priorImage || !priorMediaType || !image || !mediaType) return res.status(400).json({ error: 'Missing image data.' });
@@ -277,7 +318,7 @@ app.post('/api/sideshoot/revision', async (req, res) => {
   }
 });
 
-app.post('/api/sideshoot/chat', async (req, res) => {
+app.post('/api/sideshoot/chat', sideshootRateLimit, async (req, res) => {
   try {
     const { theme: themeSlug, messages } = req.body;
     if (!Array.isArray(messages) || messages.length === 0) return res.status(400).json({ error: 'Missing conversation.' });
