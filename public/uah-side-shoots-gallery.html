@@ -418,20 +418,13 @@ function lockOtherPieces(pickedSlug){
   });
 }
 
-// on load: if a choice was already made on this browser, reflect it
+// on load: if a commitment was already made (by submitting real work on a submission page), reflect it here
 const alreadyPicked = localStorage.getItem(LOCK_KEY);
 if (alreadyPicked) {
   lockOtherPieces(alreadyPicked);
 }
-
-// on click: remember the choice for next time this page loads
-sideShootPieces.forEach(el => {
-  el.addEventListener('click', () => {
-    if (!localStorage.getItem(LOCK_KEY)) {
-      localStorage.setItem(LOCK_KEY, el.dataset.theme);
-    }
-  });
-});
+// note: clicking a piece here only browses to it — the actual commitment happens on the
+// submission page itself, the moment someone submits real work and gets real feedback back.
 </script>
 </body>
 </html>
