@@ -185,6 +185,13 @@ const LESSONS = {
     scope: `1. Foreground subject quality (is the main subject rendered with the confidence, proportion, and edge control built up across earlier lessons)
 2. Background restraint (does the background stay genuinely subordinate — lower contrast, less detail, softer or quieter marks — so it recedes, rather than being rendered with the same care as the subject and competing with it)
 3. Depth read (does the piece convincingly read as something in front of something else, or does it read as one flat, evenly-weighted scene)`
+  },
+  lesson6: {
+    title: 'Lesson 6: First Finished Piece',
+    scope: `This is the final Beginner-tier lesson — a synthesis, not a new isolated skill. The student chose their own subject this time. Assess the piece as a considered whole, across everything built up so far:
+1. Proportion and shape (does everything drawn read as believable, whatever the subject)
+2. Value, light, and edge control together (is there one consistent light source, does shading create real form, do edges vary in weight the way a real object's edges do)
+3. Composition as a whole (is there one clear focal point, does the background stay appropriately quieter than the subject, does the whole piece read as one considered scene rather than a collection of separate technical exercises)`
   }
 };
 
