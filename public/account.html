@@ -67,6 +67,29 @@
     color:var(--ink-soft);
   }
   .status-badge.active{background:var(--moss);color:#fff;}
+  .course-tier-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    margin-bottom:8px;
+  }
+  .lesson-link{
+    display:block;
+    padding:11px 14px;
+    margin-bottom:8px;
+    background:var(--parchment);
+    border:1px solid var(--line);
+    border-radius:2px;
+    color:var(--ink);
+    text-decoration:none;
+    font-size:14px;
+    font-weight:600;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .lesson-link:hover{border-color:var(--moss);background:#fff;}
+  .lesson-link:last-child{margin-bottom:0;}
   button{
     font-family:'Work Sans',sans-serif;
     font-weight:600;
@@ -114,8 +137,9 @@ fetch('/api/auth/me')
     `;
     const memberAreaHtml = isActive ? `
       <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
-        <div class="field-label" style="margin-bottom:10px;">Your course</div>
-        <a href="lesson1.html" style="display:block;background:var(--moss);color:#fff;text-align:center;text-decoration:none;padding:12px;border-radius:2px;font-weight:600;font-size:14px;">Beginner · Lesson 1: One Object, One Light</a>
+        <div class="course-tier-label">Your course — Beginner</div>
+        <a href="lesson1.html" class="lesson-link">Lesson 1: One Object, One Light</a>
+        <a href="lesson2.html" class="lesson-link">Lesson 2: Two Objects, One Light</a>
       </div>
     ` : '';
     const testToolsHtml = isActive ? '' : `

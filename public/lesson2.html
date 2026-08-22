@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UAH Academy — Lesson 1 Feedback</title>
+<title>UAH Academy — Lesson 2 Feedback</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -255,28 +255,28 @@
 </head>
 <body>
 <div class="wrap" id="wrap" style="display:none;">
-  <div class="eyebrow">Beginner tier · Lesson 1: One Object, One Light</div>
-  <h1>Show me your egg, apple, or mug.</h1>
+  <div class="eyebrow">Beginner tier · Lesson 2: Two Objects, One Light</div>
+  <h1>Show me two objects, sharing one light.</h1>
 
   <div class="warmup-label">Before you begin</div>
-  <p class="warmup">Today we will be drawing a simple object. Objects are never simple when we look closely. It might be an egg or a cup or a piece of fruit, but they all have their own texture and the way their texture plays with light. The cup reflects because it is glazed and glossy. The egg absorbs light with its matt surface. This lesson asks us to look closely, and use our chosen medium to practise putting down marks.</p>
+  <p class="warmup">Today we bring a second object into the picture. Nothing about drawing one thing well prepares you for two, because the moment a second object arrives, everything becomes a comparison. Is the mug really that much bigger than the egg beside it, or does it only look that way from where you're sitting? Does the light fall the same way across both, or does the glossy cup argue with the matt fruit next to it? A single object only has to be itself. Two objects have to agree — on the same light, the same distance, the same page. This lesson asks you to hold both at once.</p>
 
-  <p class="brief-intro">How light creates the illusion of form on a flat page, and getting basic proportion right. That's it — two things, nothing more.</p>
+  <p class="brief-intro">Getting the size relationship between two objects honest, and keeping the same light logic working across both. That's it — two things, but harder than they sound.</p>
 
   <div class="brief-heading">What you'll need</div>
   <ul class="brief-list">
-    <li>One simple object: an egg, an apple, a mug, a pear — anything roughly round or oval</li>
-    <li>Whatever's nearest to hand to draw with — pencil, pen, biro on the back of an envelope is genuinely fine</li>
-    <li>A spot near a window with clear light coming from one side (not overhead light — you need a visible light side and a shadow side)</li>
+    <li>Two simple objects, genuinely different in size or shape — not two eggs, but something like a mug and an egg, or an apple and a pear of noticeably different sizes</li>
+    <li>Whatever's nearest to hand to draw with — the same as Lesson 1</li>
+    <li>The same single light source from one side — consistency with what you learned in Lesson 1 matters here more than ever</li>
   </ul>
 
   <div class="brief-heading">The exercise (15–20 minutes)</div>
   <ol class="brief-list">
-    <li><b>Shape first.</b> Get the outline roughly right before worrying about anything else.</li>
-    <li><b>Find the light.</b> Look for where it's brightest and where the shadow is darkest, and everything in between. Try to get that onto the page.</li>
-    <li><b>Keep it centred.</b> Don't overthink composition — just keep the object roughly in the middle so there's one clear thing to look at.</li>
+    <li><b>Place them close.</b> Put the two objects near each other, slightly overlapping if that feels natural — you want to actually compare them, not draw two separate little scenes.</li>
+    <li><b>Compare before you commit.</b> Hold your pencil up and roughly measure how many times the smaller object fits into the larger one, before you commit either outline to the page.</li>
+    <li><b>One light, both objects.</b> Apply the same shading logic from Lesson 1 to both forms consistently — if the light comes from the left, both objects need their dark side on the right.</li>
   </ol>
-  <p class="brief-note">That's the whole brief. Don't aim for "good" — aim for honest.</p>
+  <p class="brief-note">That's the whole brief, same as before. Getting the proportion between the two roughly honest matters more than getting either one perfect alone.</p>
 
   <div class="brief-heading">Submitting it</div>
   <p class="brief-body">Photograph it in natural daylight if you can, straight-on rather than at an angle, on a plain surface. Our AI teacher will provide feedback and offer suggestions. You can ask for more detail for a deeper analysis, and ask questions to clear up anything that's still confusing.</p>
@@ -422,7 +422,7 @@ submitBtn.addEventListener('click', async () => {
     const response = await fetch('/api/critique', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lesson: 'lesson1', image: imageBase64, mediaType: imageMediaType, explanation: explanationText })
+      body: JSON.stringify({ lesson: 'lesson2', image: imageBase64, mediaType: imageMediaType, explanation: explanationText })
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Request failed (' + response.status + ')');
@@ -456,7 +456,7 @@ moreDetailBtn.addEventListener('click', async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        lesson: 'lesson1',
+        lesson: 'lesson2',
         image: imageBase64,
         mediaType: imageMediaType,
         explanation: explanationText,
