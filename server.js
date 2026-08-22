@@ -167,6 +167,12 @@ const LESSONS = {
     scope: `1. Relative proportion between the two objects (do they relate to each other believably in size and placement, not just correct individually)
 2. Value and light consistency (is the same light logic applied convincingly across BOTH objects, not just one)
 3. Focal point (does the pair read as one grouped subject, with a clear sense of what draws the eye first)`
+  },
+  lesson3: {
+    title: 'Lesson 3: Line & Edges',
+    scope: `1. Line confidence (are marks committed and clear, rather than scratchy, hesitant, repeated attempts at the same edge)
+2. Edge variation (does the line vary appropriately — harder and more definite where a boundary is a strong contact point or shadow-side transition, softer or fading where the form turns gently into light — rather than one uniform outline all the way around)
+3. Focal point (is there still one clear place the eye is drawn to, now reinforced partly through line weight rather than only shading)`
   }
 };
 
