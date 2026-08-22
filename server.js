@@ -179,6 +179,12 @@ const LESSONS = {
     scope: `1. Proportion and placement among three or four objects (do they relate to each other believably as a group, not just individually correct)
 2. Value and light consistency across every object in the arrangement (same light logic applied convincingly to all forms, not just one or two)
 3. Focal point (is there clearly one object the arrangement is built around, with the others genuinely supporting it — through overlap, scale, or reduced emphasis — rather than every object competing equally for attention)`
+  },
+  lesson5: {
+    title: 'Lesson 5: Foreground & Background',
+    scope: `1. Foreground subject quality (is the main subject rendered with the confidence, proportion, and edge control built up across earlier lessons)
+2. Background restraint (does the background stay genuinely subordinate — lower contrast, less detail, softer or quieter marks — so it recedes, rather than being rendered with the same care as the subject and competing with it)
+3. Depth read (does the piece convincingly read as something in front of something else, or does it read as one flat, evenly-weighted scene)`
   }
 };
 
