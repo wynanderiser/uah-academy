@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const app = express();
@@ -376,6 +377,169 @@ app.post('/api/sideshoot/chat', sideshootRateLimit, async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error('sideshoot chat error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ AUTHENTICATION (magic-link login) ============
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const SITE_URL = process.env.SITE_URL || 'https://academy.ulverstonarthouse.co.uk';
+const LOGIN_TOKEN_TTL_MINUTES = 15;
+const SESSION_TTL_DAYS = 30;
+
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function isValidEmail(email) {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function sendMagicLinkEmail(email, link) {
+  if (!RESEND_API_KEY) {
+    throw new Error('Server has no RESEND_API_KEY set yet — add it in Render\'s Environment settings.');
+  }
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: 'UAH Academy <academy@ulverstonarthouse.co.uk>',
+      to: [email],
+      subject: 'Your UAH Academy login link',
+      html: `
+        <p>Hello,</p>
+        <p>Click below to log in to UAH Academy. This link works once, and expires in ${LOGIN_TOKEN_TTL_MINUTES} minutes.</p>
+        <p><a href="${link}">Log in to UAH Academy</a></p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+      `
+    })
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Resend API error (${response.status}): ${errText}`);
+  }
+}
+
+function setSessionCookie(res, sessionToken) {
+  const maxAgeSeconds = SESSION_TTL_DAYS * 24 * 60 * 60;
+  res.setHeader('Set-Cookie', `uah_session=${sessionToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}`);
+}
+
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', `uah_session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`);
+}
+
+function getCookie(req, name) {
+  const header = req.headers.cookie;
+  if (!header) return null;
+  const match = header.split(';').map(c => c.trim()).find(c => c.startsWith(name + '='));
+  return match ? match.split('=')[1] : null;
+}
+
+async function getSessionUser(req) {
+  const sessionToken = getCookie(req, 'uah_session');
+  if (!sessionToken) return null;
+  const result = await pool.query(
+    `SELECT users.* FROM sessions
+     JOIN users ON users.id = sessions.user_id
+     WHERE sessions.session_token = $1 AND sessions.expires_at > NOW()`,
+    [sessionToken]
+  );
+  return result.rows[0] || null;
+}
+
+app.post('/api/auth/request-login', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!isValidEmail(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+
+    const token = generateToken();
+    const expiresAt = new Date(Date.now() + LOGIN_TOKEN_TTL_MINUTES * 60 * 1000);
+    await pool.query(
+      `INSERT INTO login_tokens (email, token, expires_at) VALUES ($1, $2, $3)`,
+      [email.toLowerCase().trim(), token, expiresAt]
+    );
+
+    const link = `${SITE_URL}/api/auth/verify?token=${token}`;
+    await sendMagicLinkEmail(email, link);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('request-login error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/auth/verify', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).send('Missing login token.');
+
+    const tokenResult = await pool.query(
+      `SELECT * FROM login_tokens WHERE token = $1 AND used = FALSE AND expires_at > NOW()`,
+      [token]
+    );
+    const tokenRow = tokenResult.rows[0];
+    if (!tokenRow) {
+      return res.status(400).send('This login link has expired or already been used. Please request a new one.');
+    }
+
+    await pool.query(`UPDATE login_tokens SET used = TRUE WHERE id = $1`, [tokenRow.id]);
+
+    let userResult = await pool.query(`SELECT * FROM users WHERE email = $1`, [tokenRow.email]);
+    let user = userResult.rows[0];
+    if (!user) {
+      const insertResult = await pool.query(
+        `INSERT INTO users (email) VALUES ($1) RETURNING *`,
+        [tokenRow.email]
+      );
+      user = insertResult.rows[0];
+    }
+
+    const sessionToken = generateToken();
+    const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+    await pool.query(
+      `INSERT INTO sessions (session_token, user_id, expires_at) VALUES ($1, $2, $3)`,
+      [sessionToken, user.id, sessionExpiresAt]
+    );
+
+    setSessionCookie(res, sessionToken);
+    res.redirect('/account.html');
+  } catch (err) {
+    console.error('verify error:', err);
+    res.status(500).send('Something went wrong logging you in. Please try requesting a new link.');
+  }
+});
+
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.json({ loggedIn: false });
+    res.json({
+      loggedIn: true,
+      email: user.email,
+      subscriptionStatus: user.subscription_status,
+      subscriptionPlan: user.subscription_plan
+    });
+  } catch (err) {
+    console.error('me error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const sessionToken = getCookie(req, 'uah_session');
+    if (sessionToken) {
+      await pool.query(`DELETE FROM sessions WHERE session_token = $1`, [sessionToken]);
+    }
+    clearSessionCookie(res);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('logout error:', err);
     res.status(500).json({ error: err.message });
   }
 });
