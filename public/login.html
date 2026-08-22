@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAH Academy — Log In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#EDE6D6;
+    --paper:#FBF8F2;
+    --ink:#2B2621;
+    --ink-soft:#5C544A;
+    --moss:#5C6B4F;
+    --moss-dark:#46543C;
+    --clay:#A15C3E;
+    --slate:#5B7C8D;
+    --line:#D9CFBC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--parchment);
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:56px 20px;
+  }
+  .card{
+    width:100%;
+    max-width:420px;
+    background:var(--paper);
+    border-radius:2px;
+    padding:36px 32px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    margin-bottom:14px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:26px;
+    margin:0 0 10px 0;
+  }
+  p.lede{font-size:14.5px;color:var(--ink-soft);line-height:1.55;margin:0 0 24px 0;}
+  input[type=email]{
+    width:100%;
+    font-family:'Work Sans',sans-serif;
+    font-size:15px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:2px;
+    background:var(--parchment);
+    color:var(--ink);
+    margin-bottom:14px;
+  }
+  input[type=email]:focus{outline:none;border-color:var(--moss);}
+  button{
+    width:100%;
+    font-family:'Work Sans',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    background:var(--moss);
+    color:#fff;
+    border:none;
+    padding:13px;
+    border-radius:2px;
+    cursor:pointer;
+  }
+  button:hover{background:var(--moss-dark);}
+  button:disabled{background:#B9C2AE;cursor:not-allowed;}
+  .status{font-size:13.5px;margin-top:16px;line-height:1.55;}
+  .status.success{color:var(--moss-dark);}
+  .status.error{color:var(--clay);}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="eyebrow">UAH Academy</div>
+  <h1>Log in</h1>
+  <p class="lede">Enter your email and we'll send you a link to log in — no password needed.</p>
+  <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email">
+  <button id="sendBtn">Send me a login link</button>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const emailInput = document.getElementById('emailInput');
+const sendBtn = document.getElementById('sendBtn');
+const statusEl = document.getElementById('status');
+
+sendBtn.addEventListener('click', async () => {
+  const email = emailInput.value.trim();
+  if (!email) return;
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending…';
+  statusEl.textContent = '';
+  statusEl.className = 'status';
+
+  try {
+    const response = await fetch('/api/auth/request-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Something went wrong.');
+
+    statusEl.textContent = "Check your email — we've sent you a link to log in. It's valid for 15 minutes.";
+    statusEl.classList.add('success');
+    sendBtn.textContent = 'Link sent';
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.classList.add('error');
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send me a login link';
+  }
+});
+
+emailInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendBtn.click();
+});
+</script>
+</body>
+</html>
