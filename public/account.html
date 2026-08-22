@@ -112,6 +112,18 @@ fetch('/api/auth/me')
         <button id="subscribeAnnualBtn" style="background:transparent;color:var(--moss-dark);border:1px solid var(--moss);width:100%;">£150/year (save two months)</button>
       </div>
     `;
+    const memberAreaHtml = isActive ? `
+      <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
+        <div class="field-label" style="margin-bottom:10px;">Your course</div>
+        <a href="lesson1.html" style="display:block;background:var(--moss);color:#fff;text-align:center;text-decoration:none;padding:12px;border-radius:2px;font-weight:600;font-size:14px;">Beginner · Lesson 1: One Object, One Light</a>
+      </div>
+    ` : '';
+    const testToolsHtml = isActive ? '' : `
+      <div style="margin-top:24px;padding:14px;background:#F6E9E4;border-left:3px solid var(--clay);">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--clay);margin-bottom:6px;">Test only — remove before launch</div>
+        <button id="testActivateBtn" style="width:100%;background:transparent;color:var(--clay);border:1px solid var(--clay);">Simulate active membership</button>
+      </div>
+    `;
     card.innerHTML = `
       <div class="eyebrow">UAH Academy</div>
       <h1>You're logged in</h1>
@@ -123,7 +135,9 @@ fetch('/api/auth/me')
         <div class="field-label">Membership</div>
         <span class="status-badge ${isActive ? 'active' : ''}">${data.subscriptionStatus || 'inactive'}</span>
       </div>
+      ${memberAreaHtml}
       ${subscribeHtml}
+      ${testToolsHtml}
       <button id="logoutBtn" style="margin-top:16px;">Log out</button>
     `;
     document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -145,6 +159,16 @@ fetch('/api/auth/me')
     const annualBtn = document.getElementById('subscribeAnnualBtn');
     if (monthlyBtn) monthlyBtn.addEventListener('click', () => startCheckout('monthly'));
     if (annualBtn) annualBtn.addEventListener('click', () => startCheckout('annual'));
+
+    const testActivateBtn = document.getElementById('testActivateBtn');
+    if (testActivateBtn) {
+      testActivateBtn.addEventListener('click', async () => {
+        testActivateBtn.disabled = true;
+        testActivateBtn.textContent = 'Activating…';
+        await fetch('/api/dev/activate-me', { method: 'POST' });
+        window.location.reload();
+      });
+    }
   })
   .catch(() => {
     card.innerHTML = `<div class="eyebrow">UAH Academy</div><h1>Something went wrong</h1><p style="font-size:14.5px;color:var(--ink-soft);">Could not check your login status. Please try again.</p>`;

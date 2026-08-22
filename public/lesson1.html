@@ -195,7 +195,7 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="wrap" style="display:none;">
   <div class="eyebrow">Beginner tier · Lesson 1: One Object, One Light</div>
   <h1>Show me your egg, apple, or mug.</h1>
   <p class="lede">This is checking the three things Lesson 1 covers: getting the shape right, using light and shadow to give it form, and keeping one clear thing for the eye to land on. Natural light from one side, straight-on photo, plain background works best.</p>
@@ -225,7 +225,32 @@
   </div>
 </div>
 
+<div class="wrap" id="gateMessage">
+  <p style="font-size:15px;color:var(--ink-soft);">Checking your access…</p>
+</div>
+
 <script>
+// Real access gate — checks login + active subscription before the tool is usable at all.
+(async function checkAccess(){
+  const wrap = document.getElementById('wrap');
+  const gateMessage = document.getElementById('gateMessage');
+  try {
+    const response = await fetch('/api/auth/me');
+    const data = await response.json();
+    if (data.loggedIn && data.subscriptionStatus === 'active') {
+      wrap.style.display = 'block';
+      gateMessage.style.display = 'none';
+    } else {
+      gateMessage.innerHTML = `
+        <h1 style="font-family:'Fraunces',serif;font-weight:500;font-size:26px;margin:0 0 12px 0;">This lesson is part of UAH Academy</h1>
+        <p style="font-size:15px;color:var(--ink-soft);line-height:1.55;">Please <a href="login.html">log in</a>, and enrol if you haven't already, to access this lesson.</p>
+      `;
+    }
+  } catch (err) {
+    gateMessage.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">Something went wrong checking your access. Please try again.</p>`;
+  }
+})();
+
 const drop = document.getElementById('drop');
 const fileInput = document.getElementById('fileInput');
 const submitBtn = document.getElementById('submitBtn');
