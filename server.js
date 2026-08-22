@@ -173,6 +173,12 @@ const LESSONS = {
     scope: `1. Line confidence (are marks committed and clear, rather than scratchy, hesitant, repeated attempts at the same edge)
 2. Edge variation (does the line vary appropriately — harder and more definite where a boundary is a strong contact point or shadow-side transition, softer or fading where the form turns gently into light — rather than one uniform outline all the way around)
 3. Focal point (is there still one clear place the eye is drawn to, now reinforced partly through line weight rather than only shading)`
+  },
+  lesson4: {
+    title: 'Lesson 4: Simple Still Life',
+    scope: `1. Proportion and placement among three or four objects (do they relate to each other believably as a group, not just individually correct)
+2. Value and light consistency across every object in the arrangement (same light logic applied convincingly to all forms, not just one or two)
+3. Focal point (is there clearly one object the arrangement is built around, with the others genuinely supporting it — through overlap, scale, or reduced emphasis — rather than every object competing equally for attention)`
   }
 };
 
