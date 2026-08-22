@@ -1,10 +1,59 @@
 const express = require('express');
 const path = require('path');
+const { Pool } = require('pg');
 
 const app = express();
 app.set('trust proxy', 1); // so req.ip reflects the real visitor's address behind Render's proxy
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ============ DATABASE ============
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
+
+async function initSchema() {
+  if (!process.env.DATABASE_URL) {
+    console.warn('No DATABASE_URL set — skipping database setup. Login/subscriptions will not work until this is added.');
+    return;
+  }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        stripe_customer_id TEXT,
+        subscription_status TEXT DEFAULT 'inactive',
+        subscription_plan TEXT,
+        current_period_end TIMESTAMPTZ
+      );
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS login_tokens (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL,
+        token TEXT UNIQUE NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id SERIAL PRIMARY KEY,
+        session_token TEXT UNIQUE NOT NULL,
+        user_id INTEGER REFERENCES users(id),
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log('Database schema ready (users, login_tokens, sessions).');
+  } catch (err) {
+    console.error('Database schema setup failed:', err.message);
+  }
+}
 
 // ============ FREE-TIER SAFETY NET ============
 // Side Shoots are free, no-account-required entry points, which means they're the one
@@ -331,5 +380,16 @@ app.post('/api/sideshoot/chat', sideshootRateLimit, async (req, res) => {
   }
 });
 
+app.get('/api/db-check', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() as time, (SELECT COUNT(*) FROM users) as user_count');
+    res.json({ ok: true, time: result.rows[0].time, user_count: result.rows[0].user_count });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`UAH Academy prototype running on port ${PORT}`));
+initSchema().then(() => {
+  app.listen(PORT, () => console.log(`UAH Academy prototype running on port ${PORT}`));
+});
