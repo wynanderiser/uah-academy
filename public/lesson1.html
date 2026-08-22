@@ -251,6 +251,67 @@
   .fb-more ul{margin:4px 0 0 0;padding-left:20px;}
   .fb-more li{font-size:15px;line-height:1.6;margin-bottom:8px;}
   .fb-more li:last-child{margin-bottom:0;}
+
+  .milestone-row{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-top:20px;
+    flex-wrap:wrap;
+  }
+  .milestone-btn{
+    font-family:'Work Sans',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:10px 18px;
+    border-radius:2px;
+    cursor:pointer;
+  }
+  .milestone-btn-outline{background:transparent;color:var(--slate);border:1px solid var(--slate);}
+  .milestone-btn-outline:hover{background:var(--slate);color:#fff;}
+  .milestone-btn-solid{background:var(--moss);color:#fff;border:none;}
+  .milestone-btn-solid:hover{background:var(--moss-dark);}
+  .passed-box{
+    margin-top:24px;
+    padding:28px 24px;
+    background:var(--paper);
+    border:2px solid var(--moss);
+    border-radius:2px;
+    text-align:center;
+  }
+  .passed-check{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:44px;height:44px;
+    border-radius:50%;
+    background:var(--moss);
+    color:#fff;
+    font-size:22px;
+    margin-bottom:12px;
+  }
+  .passed-title{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:20px;
+    margin:0 0 8px 0;
+  }
+  .passed-note{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin:0 0 18px 0;
+  }
+  .passed-continue{
+    display:inline-block;
+    background:var(--moss);
+    color:#fff;
+    text-decoration:none;
+    font-weight:600;
+    font-size:14px;
+    padding:11px 22px;
+    border-radius:2px;
+  }
+  .passed-continue:hover{background:var(--moss-dark);}
 </style>
 </head>
 <body>
@@ -304,6 +365,14 @@
   <div class="more-detail-row" id="moreDetailRow" style="display:none;">
     <button id="moreDetailBtn">Want more detail? I can go deeper on this.</button>
   </div>
+
+  <div class="milestone-row" id="milestoneRow" style="display:none;">
+    <button id="revisionUploadBtn" class="milestone-btn milestone-btn-outline">Made changes? Show me again</button>
+    <input type="file" id="revisionInput" accept="image/*" style="display:none;">
+    <button id="passBtn" class="milestone-btn milestone-btn-solid">Happy with this? Mark as passed</button>
+  </div>
+  <div id="revisionFeedback"></div>
+  <div id="passedBox" style="display:none;"></div>
 </div>
 
 <div class="wrap" id="gateMessage">
@@ -341,10 +410,20 @@ const errorEl = document.getElementById('error');
 const feedbackEl = document.getElementById('feedback');
 const moreDetailRow = document.getElementById('moreDetailRow');
 const moreDetailBtn = document.getElementById('moreDetailBtn');
+const milestoneRow = document.getElementById('milestoneRow');
+const revisionUploadBtn = document.getElementById('revisionUploadBtn');
+const revisionInput = document.getElementById('revisionInput');
+const passBtn = document.getElementById('passBtn');
+const revisionFeedbackEl = document.getElementById('revisionFeedback');
+const passedBox = document.getElementById('passedBox');
 
 let imageBase64 = null;
 let imageMediaType = null;
 let lastFeedback = null;
+let priorImageBase64 = null;
+let priorImageMediaType = null;
+let revisionRound = 0;
+const MAX_REVISION_ROUNDS = 3;
 
 drop.addEventListener('click', () => fileInput.click());
 drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.style.borderColor = '#5C6B4F'; });
@@ -386,6 +465,12 @@ function handleFile(file){
       resetBtn.style.display = 'inline-block';
       feedbackEl.style.display = 'none';
       moreDetailRow.style.display = 'none';
+      milestoneRow.style.display = 'none';
+      revisionFeedbackEl.innerHTML = '';
+      passedBox.style.display = 'none';
+      priorImageBase64 = null;
+      priorImageMediaType = null;
+      revisionRound = 0;
       lastFeedback = null;
       errorEl.style.display = 'none';
       statusEl.textContent = '';
@@ -403,6 +488,12 @@ resetBtn.addEventListener('click', () => {
   resetBtn.style.display = 'none';
   feedbackEl.style.display = 'none';
   moreDetailRow.style.display = 'none';
+  milestoneRow.style.display = 'none';
+  revisionFeedbackEl.innerHTML = '';
+  passedBox.style.display = 'none';
+  priorImageBase64 = null;
+  priorImageMediaType = null;
+  revisionRound = 0;
   lastFeedback = null;
   errorEl.style.display = 'none';
   statusEl.textContent = '';
@@ -429,9 +520,12 @@ submitBtn.addEventListener('click', async () => {
 
     renderFeedback(data);
     lastFeedback = data;
+    priorImageBase64 = imageBase64;
+    priorImageMediaType = imageMediaType;
     moreDetailRow.style.display = 'block';
     moreDetailBtn.disabled = false;
     moreDetailBtn.textContent = 'Want more detail? I can go deeper on this.';
+    milestoneRow.style.display = 'flex';
     statusEl.textContent = '';
   } catch (err) {
     errorEl.textContent = "Something went wrong getting feedback: " + err.message + ". Give it another try.";
@@ -513,6 +607,114 @@ function escapeHtml(str){
   d.textContent = str;
   return d.innerHTML;
 }
+
+revisionUploadBtn.addEventListener('click', () => revisionInput.click());
+revisionInput.addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) handleRevisionFile(e.target.files[0]);
+});
+
+function handleRevisionFile(file){
+  if (revisionRound >= MAX_REVISION_ROUNDS) return;
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1100;
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      const revisedBase64 = dataUrl.split(',')[1];
+      submitRevision(revisedBase64, 'image/jpeg');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitRevision(revisedBase64, mediaType){
+  revisionUploadBtn.disabled = true;
+  revisionUploadBtn.textContent = 'Looking closely…';
+  errorEl.style.display = 'none';
+
+  try {
+    const response = await fetch('/api/revision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lesson: 'lesson1',
+        priorImage: priorImageBase64,
+        priorMediaType: priorImageMediaType,
+        image: revisedBase64,
+        mediaType: mediaType
+      })
+    });
+    const parsed = await response.json();
+    if (!response.ok) throw new Error(parsed.error || 'Request failed (' + response.status + ')');
+
+    revisionRound += 1;
+    renderRevisionFeedback(parsed, revisionRound);
+    priorImageBase64 = revisedBase64;
+    priorImageMediaType = mediaType;
+
+    if (revisionRound >= MAX_REVISION_ROUNDS) {
+      revisionUploadBtn.style.display = 'none';
+    }
+  } catch (err) {
+    errorEl.textContent = "Something went wrong looking at the revision: " + err.message + ". Give it another try.";
+    errorEl.style.display = 'block';
+    console.error('Revision request failed:', err);
+  } finally {
+    revisionUploadBtn.disabled = false;
+    revisionUploadBtn.textContent = 'Made changes? Show me again';
+    revisionInput.value = '';
+  }
+}
+
+function renderRevisionFeedback(fb, round){
+  const wrap = document.createElement('div');
+  wrap.style.marginTop = '20px';
+  wrap.innerHTML = `
+    <div class="eyebrow" style="margin-bottom:10px;">Revised attempt ${round}</div>
+    <div class="fb-card">
+      <div class="fb-block fb-praise">
+        <div class="fb-label">What's changed</div>
+        <p>${escapeHtml(fb.praise || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-fixes">
+        <div class="fb-label">Try this next</div>
+        <p>${escapeHtml(fb.fix || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-encourage">
+        <div class="fb-label">Keep going</div>
+        <p>${escapeHtml(fb.encouragement || '')}</p>
+      </div>
+    </div>
+  `;
+  revisionFeedbackEl.appendChild(wrap);
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+passBtn.addEventListener('click', () => {
+  milestoneRow.style.display = 'none';
+  passedBox.style.display = 'block';
+  passedBox.innerHTML = `
+    <div class="passed-check">&#10003;</div>
+    <div class="passed-title">Lesson Passed</div>
+    <p class="passed-note">You've engaged honestly with the feedback — that's what passing means here, not perfection.</p>
+    <a href="lesson2.html" class="passed-continue">Continue to Lesson 2</a>
+  `;
+  passedBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
 </script>
 </body>
 </html>
