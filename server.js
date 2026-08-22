@@ -211,6 +211,23 @@ Your entire response must be a single raw JSON object and nothing else. The very
 {"details": ["first additional observation", "second additional observation, or omit if only one is warranted"]}`;
 }
 
+function buildLessonRevisionPrompt(lesson){
+  return `You are the AI tutor for UAH Academy, looking at a revised attempt at "${lesson.title}". The student already received feedback on an earlier photo of this same piece, and has now gone back and worked on it — or says they have.
+
+You will be shown TWO images, in this exact order: first the EARLIER version, then the NEW version. Before saying anything else, genuinely and carefully compare the two images against each other — do not assume they are different just because two images were provided.
+
+If the two images are identical, or so close to identical that no meaningful change is visible, you MUST say so plainly and honestly. Do NOT invent or describe a change that isn't genuinely visible, no matter how plausible it would sound. It is better to correctly notice nothing changed than to praise a change that didn't happen.
+
+If there IS a genuine, visible difference: stay strictly within Beginner-tier scope, only these things —
+${lesson.scope}
+No personal style, no artistic voice, no colour theory, no composition theory beyond focal point. Address directly and specifically what has visibly changed. If the earlier fix was addressed well, say so specifically, describing the actual visible difference, and credit the effort of revising. If it wasn't fully resolved, or a new issue is now more visible, name that clearly and kindly.
+
+Give exactly ONE fix, same rule as before. Never two.
+
+Your entire response must be a single raw JSON object and nothing else. The very first character must be { and the last must be }. Respond in exactly this shape:
+{"praise": "one or two sentences — either genuine, specific praise about the visible change, or an honest note that no real change is visible", "fix": "one specific, actionable fix — or, if nothing changed, a suggestion to try the original fix again", "encouragement": "one short warm closing line, honest to whatever actually happened"}`;
+}
+
 function tryParseFeedback(rawText) {
   const text = rawText.trim();
   try { return JSON.parse(text); } catch (e) {}
@@ -288,6 +305,26 @@ app.post('/api/more-detail', async (req, res) => {
     res.json(parsed);
   } catch (err) {
     console.error('more-detail error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/revision', async (req, res) => {
+  try {
+    const { lesson: lessonSlug, priorImage, priorMediaType, image, mediaType } = req.body;
+    if (!priorImage || !priorMediaType || !image || !mediaType) return res.status(400).json({ error: 'Missing image data.' });
+    const lesson = getLesson(lessonSlug);
+    const messages = [{ role: 'user', content: [
+      { type: 'text', text: 'Earlier version:' },
+      { type: 'image', source: { type: 'base64', media_type: priorMediaType, data: priorImage } },
+      { type: 'text', text: 'New version:' },
+      { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } },
+      { type: 'text', text: 'The first image is the earlier version. The second image is the new version, just submitted. Compare them directly and respond accordingly.' }
+    ]}];
+    const parsed = await callClaudeMessages(buildLessonRevisionPrompt(lesson), messages, 1000);
+    res.json(parsed);
+  } catch (err) {
+    console.error('revision error:', err);
     res.status(500).json({ error: err.message });
   }
 });
