@@ -2,9 +2,65 @@ const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const stripeClient = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY;
+const STRIPE_PRICE_ANNUAL = process.env.STRIPE_PRICE_ANNUAL;
 
 const app = express();
 app.set('trust proxy', 1); // so req.ip reflects the real visitor's address behind Render's proxy
+
+// The Stripe webhook needs the raw, unparsed request body to verify its signature,
+// so it must be registered BEFORE the general express.json() middleware below —
+// Express runs middleware/routes in the order they're registered.
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  let event;
+  try {
+    event = stripeClient.webhooks.constructEvent(req.body, req.headers['stripe-signature'], STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('Stripe webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const userId = session.client_reference_id;
+      const customerId = session.customer;
+      const subscriptionId = session.subscription;
+
+      const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
+      const priceId = subscription.items.data[0].price.id;
+      const plan = priceId === STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly';
+      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+
+      await pool.query(
+        `UPDATE users SET stripe_customer_id = $1, subscription_status = 'active', subscription_plan = $2, current_period_end = $3 WHERE id = $4`,
+        [customerId, plan, currentPeriodEnd, userId]
+      );
+      console.log(`Subscription activated for user ${userId} (${plan})`);
+    }
+
+    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object;
+      const status = subscription.status === 'active' ? 'active' : 'inactive';
+      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+
+      await pool.query(
+        `UPDATE users SET subscription_status = $1, current_period_end = $2 WHERE stripe_customer_id = $3`,
+        [status, currentPeriodEnd, subscription.customer]
+      );
+      console.log(`Subscription updated for customer ${subscription.customer}: ${status}`);
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Stripe webhook handling error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -540,6 +596,36 @@ app.post('/api/auth/logout', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('logout error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/create-checkout-session', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+    const { plan } = req.body;
+    const priceId = plan === 'annual' ? STRIPE_PRICE_ANNUAL : STRIPE_PRICE_MONTHLY;
+    if (!priceId) return res.status(500).json({ error: 'Pricing is not configured yet on the server.' });
+
+    const sessionParams = {
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${SITE_URL}/account.html?checkout=success`,
+      cancel_url: `${SITE_URL}/account.html?checkout=cancelled`,
+      client_reference_id: String(user.id)
+    };
+    if (user.stripe_customer_id) {
+      sessionParams.customer = user.stripe_customer_id;
+    } else {
+      sessionParams.customer_email = user.email;
+    }
+
+    const checkoutSession = await stripeClient.checkout.sessions.create(sessionParams);
+    res.json({ url: checkoutSession.url });
+  } catch (err) {
+    console.error('create-checkout-session error:', err);
     res.status(500).json({ error: err.message });
   }
 });
