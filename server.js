@@ -710,6 +710,46 @@ app.post('/api/dev/activate-me', async (req, res) => {
   }
 });
 
+const REWARD_NOTIFY_EMAIL = process.env.REWARD_NOTIFY_EMAIL || 'david@ulverstonarthouse.co.uk';
+
+app.post('/api/claim-reward', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+
+    const { image, mediaType } = req.body;
+    if (!image || !mediaType) return res.status(400).json({ error: 'Missing image.' });
+    if (!RESEND_API_KEY) throw new Error('Server has no RESEND_API_KEY set yet.');
+
+    const ext = mediaType === 'image/png' ? 'png' : 'jpg';
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'UAH Academy <academy@mail.ulverstonarthouse.co.uk>',
+        to: [REWARD_NOTIFY_EMAIL],
+        subject: `Greetings card reward claim — ${user.email}`,
+        html: `<p>A student has just completed Beginner tier and claimed their free greetings card reward.</p><p><b>Student email:</b> ${user.email}</p><p>Their finished piece is attached.</p>`,
+        attachments: [{ content: image, filename: `finished-piece.${ext}` }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Resend API error (${response.status}): ${errText}`);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('claim-reward error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
     const user = await getSessionUser(req);
