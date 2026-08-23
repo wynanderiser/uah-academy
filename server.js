@@ -33,7 +33,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
       const priceId = subscription.items.data[0].price.id;
       const plan = priceId === STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly';
-      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+      const rawPeriodEnd = subscription.items.data[0]?.current_period_end;
+      const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
 
       await pool.query(
         `UPDATE users SET stripe_customer_id = $1, subscription_status = 'active', subscription_plan = $2, current_period_end = $3 WHERE id = $4`,
@@ -45,7 +46,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object;
       const status = subscription.status === 'active' ? 'active' : 'inactive';
-      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+      const rawPeriodEnd = subscription.items.data[0]?.current_period_end;
+      const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
 
       await pool.query(
         `UPDATE users SET subscription_status = $1, current_period_end = $2 WHERE stripe_customer_id = $3`,
@@ -201,17 +203,24 @@ const LESSONS = {
   },
   intermediate1: {
     tier: 'intermediate',
-    title: 'Intermediate Lesson 1: Perspective Basics, Part 1 — The Vanishing Point',
+    title: 'Intermediate Lesson 1: Perspective Basics',
     scope: `1. Use of a single vanishing point and horizon line (do receding edges genuinely converge toward one consistent point, rather than staying parallel or converging inconsistently)
 2. Proportion and form under perspective (do objects still read as believable in scale and shape once perspective is applied, not distorted or flattened)
-3. Overall spatial conviction (does the piece genuinely feel like it exists in a real space extending back from the viewer, or does it still read as a flat arrangement)`
+3. Deliberate horizon placement (does the horizon's position — centre, upper third, or lower third — feel like a genuine choice suited to the scene, not an accidental default, and does that choice support the balance of ground versus sky the piece seems to be going for)`
   },
   intermediate2: {
     tier: 'intermediate',
-    title: 'Intermediate Lesson 2: Perspective Basics, Part 2 — Horizon Placement',
-    scope: `1. Deliberate horizon placement (does the horizon's position — centre, upper third, or lower third — feel like a genuine choice suited to the scene, not an accidental default)
-2. Consequence of that choice (does the balance of ground versus sky actually support the mood or focus the piece seems to be going for)
-3. The same perspective mechanics from Part 1 (vanishing point, converging edges, believable proportion) still need to be present and correct — this lesson adds a new consideration, it doesn't replace the last one`
+    title: 'Intermediate Lesson 2: Life vs Reference',
+    scope: `1. Honest proportion and observation (does the piece reflect genuine, careful looking, rather than a mechanical or distorted copy of a source)
+2. Signs of photographic distortion faithfully copied rather than corrected (flattened depth, odd exposure-driven contrast, a lens-distorted proportion) — if this is the photo-reference drawing specifically
+3. Liveliness and presence (does the piece feel like it was genuinely observed, with the small honest imperfections that come from real looking, rather than feeling mechanically traced)`
+  },
+  intermediate3: {
+    tier: 'intermediate',
+    title: 'Intermediate Lesson 3: Composition in Depth — Thirds and Leading Lines',
+    scope: `1. Rule-of-thirds placement (does the subject's key point sit near a grid intersection rather than dead-centre, and does that placement feel deliberate rather than accidental)
+2. Leading lines (is there a real or implied line within the scene that genuinely draws the eye toward the subject, rather than the subject simply floating with nothing directing attention to it)
+3. Everything already built (proportion, light, edges, focal point) still needs to be present and correct — these are two new deliberate tools added on top, not a replacement for the fundamentals`
   }
 };
 
