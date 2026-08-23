@@ -201,17 +201,10 @@ const LESSONS = {
   },
   intermediate1: {
     tier: 'intermediate',
-    title: 'Intermediate Lesson 1: Perspective Basics, Part 1 — The Vanishing Point',
+    title: 'Intermediate Lesson 1: Perspective Basics',
     scope: `1. Use of a single vanishing point and horizon line (do receding edges genuinely converge toward one consistent point, rather than staying parallel or converging inconsistently)
 2. Proportion and form under perspective (do objects still read as believable in scale and shape once perspective is applied, not distorted or flattened)
-3. Overall spatial conviction (does the piece genuinely feel like it exists in a real space extending back from the viewer, or does it still read as a flat arrangement)`
-  },
-  intermediate2: {
-    tier: 'intermediate',
-    title: 'Intermediate Lesson 2: Perspective Basics, Part 2 — Horizon Placement',
-    scope: `1. Deliberate horizon placement (does the horizon's position — centre, upper third, or lower third — feel like a genuine choice suited to the scene, not an accidental default)
-2. Consequence of that choice (does the balance of ground versus sky actually support the mood or focus the piece seems to be going for)
-3. The same perspective mechanics from Part 1 (vanishing point, converging edges, believable proportion) still need to be present and correct — this lesson adds a new consideration, it doesn't replace the last one`
+3. Deliberate horizon placement (does the horizon's position — centre, upper third, or lower third — feel like a genuine choice suited to the scene, not an accidental default, and does that choice support the balance of ground versus sky the piece seems to be going for)`
   }
 };
 
