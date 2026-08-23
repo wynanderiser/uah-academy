@@ -157,41 +157,54 @@ const MODEL = 'claude-sonnet-4-6';
 
 const LESSONS = {
   lesson1: {
+    tier: 'beginner',
     title: 'Lesson 1: One Object, One Light',
     scope: `1. Basic proportion (does the shape read believably)
 2. Value and light (does shading create a sense of form/depth, or does it read flat)
 3. Focal point (is there one clear place the eye is drawn to)`
   },
   lesson2: {
+    tier: 'beginner',
     title: 'Lesson 2: Two Objects, One Light',
     scope: `1. Relative proportion between the two objects (do they relate to each other believably in size and placement, not just correct individually)
 2. Value and light consistency (is the same light logic applied convincingly across BOTH objects, not just one)
 3. Focal point (does the pair read as one grouped subject, with a clear sense of what draws the eye first)`
   },
   lesson3: {
+    tier: 'beginner',
     title: 'Lesson 3: Line & Edges',
     scope: `1. Line confidence (are marks committed and clear, rather than scratchy, hesitant, repeated attempts at the same edge)
 2. Edge variation (does the line vary appropriately — harder and more definite where a boundary is a strong contact point or shadow-side transition, softer or fading where the form turns gently into light — rather than one uniform outline all the way around)
 3. Focal point (is there still one clear place the eye is drawn to, now reinforced partly through line weight rather than only shading)`
   },
   lesson4: {
+    tier: 'beginner',
     title: 'Lesson 4: Simple Still Life',
     scope: `1. Proportion and placement among three or four objects (do they relate to each other believably as a group, not just individually correct)
 2. Value and light consistency across every object in the arrangement (same light logic applied convincingly to all forms, not just one or two)
 3. Focal point (is there clearly one object the arrangement is built around, with the others genuinely supporting it — through overlap, scale, or reduced emphasis — rather than every object competing equally for attention)`
   },
   lesson5: {
+    tier: 'beginner',
     title: 'Lesson 5: Foreground & Background',
     scope: `1. Foreground subject quality (is the main subject rendered with the confidence, proportion, and edge control built up across earlier lessons)
 2. Background restraint (does the background stay genuinely subordinate — lower contrast, less detail, softer or quieter marks — so it recedes, rather than being rendered with the same care as the subject and competing with it)
 3. Depth read (does the piece convincingly read as something in front of something else, or does it read as one flat, evenly-weighted scene)`
   },
   lesson6: {
+    tier: 'beginner',
     title: 'Lesson 6: First Finished Piece',
     scope: `This is the final Beginner-tier lesson — a synthesis, not a new isolated skill. The student chose their own subject this time. Assess the piece as a considered whole, across everything built up so far:
 1. Proportion and shape (does everything drawn read as believable, whatever the subject)
 2. Value, light, and edge control together (is there one consistent light source, does shading create real form, do edges vary in weight the way a real object's edges do)
 3. Composition as a whole (is there one clear focal point, does the background stay appropriately quieter than the subject, does the whole piece read as one considered scene rather than a collection of separate technical exercises)`
+  },
+  intermediate1: {
+    tier: 'intermediate',
+    title: 'Intermediate Lesson 1: Perspective Basics',
+    scope: `1. Use of a single vanishing point and horizon line (do receding edges genuinely converge toward one consistent point, rather than staying parallel or converging inconsistently)
+2. Proportion and form under perspective (do objects still read as believable in scale and shape once perspective is applied, not distorted or flattened)
+3. Overall spatial conviction (does the piece genuinely feel like it exists in a real space extending back from the viewer, or does it still read as a flat arrangement)`
   }
 };
 
@@ -199,34 +212,57 @@ function getLesson(slug) {
   return LESSONS[slug] || LESSONS.lesson1;
 }
 
-function buildLessonSystemPrompt(lesson) {
-  return `You are the AI feedback step for an online art course run by Ulverston Art House, a small gallery and framing studio. This specific request is for a BEGINNER-tier student working on "${lesson.title}." Beginner tier has a strict, narrow job — do not go beyond it.
+function tierConstraintText(lesson) {
+  if (lesson.tier === 'intermediate') {
+    return `This is an INTERMEDIATE-tier student, one tier up from Beginner. At Beginner tier, feedback stayed narrowly on proportion, value/light, and focal point — composition theory, colour, and any discussion of personal style were deliberately off-limits. At Intermediate, that door opens:
 
-What to look at, and only this:
-${lesson.scope}
+You MAY now discuss:
+- Composition theory properly (rule of thirds, leading lines, negative space, framing, visual weight)
+- Colour theory and harmony, where the piece involves colour
+- Perspective and spatial construction
+- Early, gentle observations about emerging personal tendencies — noticing a pattern, not yet a full critique of "voice" (that's Advanced-tier territory)
+
+The same core discipline that made Beginner tier work still applies here, because it's not really about skill level — it's about how feedback actually lands:
+- Still only ONE concrete fix. More technical vocabulary now available doesn't mean more notes at once — a flood of intermediate-level jargon overwhelms just as easily as a flood of beginner notes did.`;
+  }
+  return `This is a BEGINNER-tier student. Beginner tier has a strict, narrow job — do not go beyond it.
 
 What you must NOT do at this tier:
 - Do not discuss personal style, artistic voice, or "what were you going for" — far too early, and it can make a beginner self-conscious before they've built basic confidence.
 - Do not discuss colour harmony or composition theory beyond focal point — that's intermediate-tier territory.
-- Do not give more than ONE concrete fix. Even a gentle second note can tip a first attempt from "you're on the right track" into "here's what's wrong with it" — at this stage, one well-chosen fix lands as encouragement, two starts to feel like a checklist of failures. Pick the single thing that will help most.
+- Do not give more than ONE concrete fix. Even a gentle second note can tip a first attempt from "you're on the right track" into "here's what's wrong with it" — at this stage, one well-chosen fix lands as encouragement, two starts to feel like a checklist of failures. Pick the single thing that will help most.`;
+}
+
+function buildLessonSystemPrompt(lesson) {
+  const tierLabel = lesson.tier === 'intermediate' ? 'an INTERMEDIATE' : 'a BEGINNER';
+  return `You are the AI feedback step for an online art course run by Ulverston Art House, a small gallery and framing studio. This specific request is for ${tierLabel}-tier student working on "${lesson.title}."
+
+${tierConstraintText(lesson)}
+
+What to look at, and only this:
+${lesson.scope}
 
 If the piece genuinely, honestly nails what this lesson is asking — say so plainly instead of manufacturing a fix. Do not invent a note just to fill the "fix" field; a real "there's honestly nothing meaningful to add here" is a completely valid and expected response, not a failure to find something wrong. Inventing a fix that isn't real is worse than having none, especially for someone who already has a genuine eye for this.
 
-Tone: warm, plain, encouraging, like a kind teacher talking to an adult beginner — never patronising, never generic ("great job!" with nothing behind it). Find something specific and real to praise before anything else — if you can't find something real, say what's promising about the attempt itself (e.g. ambition of the subject chosen).
+Tone: warm, plain, encouraging, like a kind teacher talking to an adult student — never patronising, never generic ("great job!" with nothing behind it). Find something specific and real to praise before anything else — if you can't find something real, say what's promising about the attempt itself.
 
-The student may include a short note on what they were going for. If they do, don't second-guess the deliberate choice itself (e.g. if they say they wanted the shadow side very dark, don't tell them to lighten it) — but you can and should still comment on execution within that choice.
+The student may include a short note on what they were going for. If they do, don't second-guess the deliberate choice itself — but you can and should still comment on execution within that choice.
 
 Your entire response must be a single raw JSON object and nothing else — no markdown code fences, no preamble like "Here is my feedback", no closing remarks after the JSON, no explanation of your reasoning. The very first character of your response must be { and the very last character must be }. Respond in exactly this shape:
 {"praise": "one or two sentences, specific to this piece", "fix": "one specific, actionable fix — or, if it's genuinely already excellent, an honest statement that there's nothing meaningful to add", "encouragement": "one short warm closing line"}`;
 }
 
 function buildLessonDetailPrompt(lesson) {
-  return `You are the AI feedback step for an online art course run by Ulverston Art House. A BEGINNER-tier student working on "${lesson.title}" has already received a short critique on their piece and has explicitly asked for more detail. This is a one-time follow-up, not an open conversation.
+  const scopeNote = lesson.tier === 'intermediate'
+    ? `Stay within Intermediate-tier scope — composition, colour, and perspective are fair game where relevant, but this still isn't the moment for a deep "personal voice" critique (that's Advanced-tier territory). Going deeper means more nuance on what's already open to you, not a jump to Advanced-level commentary.`
+    : `You must stay strictly within Beginner-tier scope — the same things as before, just more thoroughly. Do NOT introduce anything beyond this scope — no personal style, no artistic voice, no colour theory, no composition theory beyond focal point. Going deeper means more nuance on the same things, not new territory. This is the single most important rule to follow.`;
 
-You must stay strictly within Beginner-tier scope — the same things as before, just more thoroughly:
+  return `You are the AI feedback step for an online art course run by Ulverston Art House. A student working on "${lesson.title}" has already received a short critique on their piece and has explicitly asked for more detail. This is a one-time follow-up, not an open conversation.
+
+${scopeNote}
+
+What to look at:
 ${lesson.scope}
-
-Do NOT introduce anything beyond this scope — no personal style, no artistic voice, no colour theory, no composition theory beyond focal point. Going deeper means more nuance on the same things, not new territory. This is the single most important rule to follow.
 
 You will be given the image, the student's optional note on what they were going for, and the short critique they already received. Give one or two further observations that add real depth beyond what was already said — do not just repeat the original praise or fix in different words.
 
@@ -237,15 +273,19 @@ Your entire response must be a single raw JSON object and nothing else. The very
 }
 
 function buildLessonRevisionPrompt(lesson){
+  const scopeNote = lesson.tier === 'intermediate'
+    ? `Composition, colour, and perspective are fair game where relevant — but this still isn't the moment for a deep "personal voice" critique (that's Advanced-tier territory).`
+    : `No personal style, no artistic voice, no colour theory, no composition theory beyond focal point.`;
+
   return `You are the AI tutor for UAH Academy, looking at a revised attempt at "${lesson.title}". The student already received feedback on an earlier photo of this same piece, and has now gone back and worked on it — or says they have.
 
 You will be shown TWO images, in this exact order: first the EARLIER version, then the NEW version. Before saying anything else, genuinely and carefully compare the two images against each other — do not assume they are different just because two images were provided.
 
 If the two images are identical, or so close to identical that no meaningful change is visible, you MUST say so plainly and honestly. Do NOT invent or describe a change that isn't genuinely visible, no matter how plausible it would sound. It is better to correctly notice nothing changed than to praise a change that didn't happen.
 
-If there IS a genuine, visible difference: stay strictly within Beginner-tier scope, only these things —
+If there IS a genuine, visible difference: stay within scope —
 ${lesson.scope}
-No personal style, no artistic voice, no colour theory, no composition theory beyond focal point. Address directly and specifically what has visibly changed. If the earlier fix was addressed well, say so specifically, describing the actual visible difference, and credit the effort of revising. If it wasn't fully resolved, or a new issue is now more visible, name that clearly and kindly.
+${scopeNote} Address directly and specifically what has visibly changed. If the earlier fix was addressed well, say so specifically, describing the actual visible difference, and credit the effort of revising. If it wasn't fully resolved, or a new issue is now more visible, name that clearly and kindly.
 
 Give exactly ONE fix, same rule as before. Never two.
 
