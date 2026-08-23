@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAH Academy — Intermediate Lesson 1 Feedback</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#EDE6D6;
+    --paper:#FBF8F2;
+    --ink:#2B2621;
+    --ink-soft:#5C544A;
+    --moss:#5C6B4F;
+    --moss-dark:#46543C;
+    --clay:#A15C3E;
+    --slate:#5B7C8D;
+    --line:#D9CFBC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--parchment);
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:56px 20px;
+  }
+  .wrap{width:100%;max-width:560px;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:6px;height:6px;border-radius:50%;
+    background:var(--moss);
+    display:inline-block;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:32px;
+    line-height:1.15;
+    margin:0 0 10px 0;
+    letter-spacing:-0.01em;
+  }
+  p.lede{
+    font-size:15px;
+    color:var(--ink-soft);
+    line-height:1.55;
+    margin:0 0 32px 0;
+    max-width:46ch;
+  }
+  .warmup-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    margin-bottom:10px;
+  }
+  .warmup{
+    font-family:'Fraunces',serif;
+    font-style:italic;
+    font-size:16px;
+    line-height:1.65;
+    color:var(--ink);
+    padding-left:18px;
+    border-left:2px solid var(--moss);
+    margin:0 0 30px 0;
+    max-width:58ch;
+  }
+  .brief-intro{
+    font-size:16px;
+    color:var(--ink);
+    line-height:1.6;
+    margin:0 0 26px 0;
+    max-width:52ch;
+  }
+  .brief-heading{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    margin-bottom:10px;
+  }
+  .brief-list{
+    margin:0 0 24px 0;
+    padding-left:22px;
+    max-width:52ch;
+  }
+  .brief-list li{
+    font-size:15px;
+    color:var(--ink);
+    line-height:1.6;
+    margin-bottom:8px;
+  }
+  .brief-list li:last-child{margin-bottom:0;}
+  .brief-note{
+    font-style:italic;
+    font-size:14.5px;
+    color:var(--ink-soft);
+    margin:0 0 30px 0;
+  }
+  .brief-body{
+    font-size:15px;
+    color:var(--ink);
+    line-height:1.6;
+    margin:0 0 30px 0;
+    max-width:52ch;
+  }
+  .mount{
+    position:relative;
+    background:var(--paper);
+    border-radius:2px;
+    padding:22px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+  }
+  .mount::before,.mount::after,
+  .frame-inner::before,.frame-inner::after{
+    content:"";
+    position:absolute;
+    width:18px;height:18px;
+    border:1.5px solid var(--ink);
+    opacity:0.55;
+  }
+  .mount::before{top:8px;left:8px;border-right:none;border-bottom:none;}
+  .mount::after{top:8px;right:8px;border-left:none;border-bottom:none;}
+  .frame-inner::before{bottom:8px;left:8px;border-right:none;border-top:none;}
+  .frame-inner::after{bottom:8px;right:8px;border-left:none;border-top:none;}
+  .frame-inner{position:absolute;inset:22px;pointer-events:none;}
+  .drop{
+    position:relative;
+    border:1px dashed var(--line);
+    border-radius:2px;
+    min-height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    cursor:pointer;
+    overflow:hidden;
+    background:repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(43,38,33,0.02) 10px, rgba(43,38,33,0.02) 11px);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .drop:hover{border-color:var(--moss);}
+  .drop.has-image{border-style:solid; border-color:var(--line); cursor:default;}
+  .drop img{max-width:100%;max-height:340px;display:block;}
+  .drop-msg{padding:24px;color:var(--ink-soft);font-size:14px;line-height:1.6;}
+  .drop-msg b{color:var(--ink);font-weight:600;}
+  input[type=file]{display:none;}
+  .explain-label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-soft);
+    margin-top:18px;
+    margin-bottom:6px;
+  }
+  .explain-label span{font-weight:400;color:#8A8072;}
+  textarea#explanation{
+    width:100%;
+    font-family:'Work Sans',sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:10px 12px;
+    resize:vertical;
+    line-height:1.5;
+  }
+  textarea#explanation:focus{outline:none;border-color:var(--moss);}
+  .actions{display:flex;align-items:center;gap:12px;margin-top:18px;}
+  button{
+    font-family:'Work Sans',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    border:none;
+    border-radius:2px;
+    padding:12px 22px;
+    cursor:pointer;
+    transition:background .15s ease, transform .05s ease;
+  }
+  button:active{transform:translateY(1px);}
+  #submitBtn{background:var(--moss);color:#fff;}
+  #submitBtn:hover{background:var(--moss-dark);}
+  #submitBtn:disabled{background:#B9C2AE;cursor:not-allowed;}
+  #resetBtn{background:transparent;color:var(--ink-soft);text-decoration:underline;padding:12px 4px;display:none;}
+  #resetBtn:hover{color:var(--ink);}
+  .status{font-size:13px;color:var(--ink-soft);margin-top:10px;min-height:18px;}
+  #feedback{margin-top:28px;display:none;}
+  .fb-card{
+    background:var(--paper);
+    border-radius:2px;
+    padding:26px 28px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+    animation:rise .35s ease both;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .fb-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .fb-praise .fb-label{color:var(--moss-dark);}
+  .fb-fixes .fb-label{color:var(--clay);}
+  .fb-encourage .fb-label{color:var(--slate);}
+  .fb-block{margin-bottom:20px;}
+  .fb-block:last-child{margin-bottom:0;}
+  .fb-block p{margin:0;font-size:15px;line-height:1.6;}
+  hr.rule{border:none;border-top:1px solid var(--line);margin:20px 0;}
+  .error{
+    display:none;
+    margin-top:18px;
+    padding:14px 16px;
+    background:#F6E9E4;
+    border-left:3px solid var(--clay);
+    font-size:13.5px;
+    color:var(--ink);
+    line-height:1.5;
+  }
+  .more-detail-row{margin-top:18px;text-align:center;}
+  #moreDetailBtn{
+    background:transparent;
+    color:var(--clay);
+    border:1px solid var(--clay);
+    font-weight:600;
+    font-size:13px;
+    padding:9px 18px;
+  }
+  #moreDetailBtn:hover{background:var(--clay);color:#fff;}
+  #moreDetailBtn:disabled{opacity:0.5;cursor:not-allowed;}
+  .fb-more{margin-top:20px;padding-top:20px;border-top:1px solid var(--line);}
+  .fb-more .fb-label{color:var(--clay);}
+  .fb-more ul{margin:4px 0 0 0;padding-left:20px;}
+  .fb-more li{font-size:15px;line-height:1.6;margin-bottom:8px;}
+  .fb-more li:last-child{margin-bottom:0;}
+
+  .milestone-row{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-top:20px;
+    flex-wrap:wrap;
+  }
+  .milestone-btn{
+    font-family:'Work Sans',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:10px 18px;
+    border-radius:2px;
+    cursor:pointer;
+  }
+  .milestone-btn-outline{background:transparent;color:var(--slate);border:1px solid var(--slate);}
+  .milestone-btn-outline:hover{background:var(--slate);color:#fff;}
+  .milestone-btn-solid{background:var(--moss);color:#fff;border:none;}
+  .milestone-btn-solid:hover{background:var(--moss-dark);}
+  .passed-box{
+    margin-top:24px;
+    padding:28px 24px;
+    background:var(--paper);
+    border:2px solid var(--moss);
+    border-radius:2px;
+    text-align:center;
+  }
+  .passed-check{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:44px;height:44px;
+    border-radius:50%;
+    background:var(--moss);
+    color:#fff;
+    font-size:22px;
+    margin-bottom:12px;
+  }
+  .passed-title{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:20px;
+    margin:0 0 8px 0;
+  }
+  .passed-note{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin:0 0 18px 0;
+  }
+  .passed-continue{
+    display:inline-block;
+    background:var(--moss);
+    color:#fff;
+    text-decoration:none;
+    font-weight:600;
+    font-size:14px;
+    padding:11px 22px;
+    border-radius:2px;
+  }
+  .passed-continue:hover{background:var(--moss-dark);}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap" style="display:none;">
+  <div class="eyebrow">Intermediate tier · Lesson 1: Perspective Basics</div>
+  <h1>Show me something that exists in real space.</h1>
+
+  <div class="warmup-label">Before you begin</div>
+  <p class="warmup">Everything so far has been about a single, fixed view — objects the size they appear, sitting exactly where you placed them, no real sense of a world extending beyond the page. Perspective is the tool that changes that. Look down any street and the parallel edges of the pavement seem to lean toward each other in the distance, meeting at a point that doesn't actually exist anywhere except in how your eye reads depth. Once you know where that point is, and put it in the right place, anything you draw starts to feel like it exists somewhere, rather than floating on paper. This lesson introduces the single simplest version of that idea — one vanishing point, one horizon line — the foundation everything else in perspective builds from.</p>
+
+  <p class="brief-intro">Learning to use a single vanishing point and horizon line so objects genuinely recede into distance, rather than sitting flat on the page. This is properly new territory — take your time with it.</p>
+
+  <div class="brief-heading">What you'll need</div>
+  <ul class="brief-list">
+    <li>A simple box-like object — a book, a tissue box, a small parcel — or a real view down a corridor or street, something with genuine straight receding edges to observe</li>
+    <li>A ruler this time — accurate straight lines matter here in a way they haven't before</li>
+    <li>The same soft pencil (2B) that's served you throughout</li>
+  </ul>
+
+  <div class="brief-heading">The exercise (30–45 minutes)</div>
+  <ol class="brief-list">
+    <li><b>Find your horizon line.</b> Draw a single horizontal line across your page at your own eye level — this represents where the horizon would be if you could see it.</li>
+    <li><b>Place one vanishing point.</b> Choose a single point on that horizon line. Every receding edge in your drawing will aim toward this one point.
+      <div style="margin-top:12px;max-width:240px;">
+        <svg viewBox="0 0 260 180" style="width:100%;height:auto;display:block;">
+          <rect x="0" y="0" width="260" height="180" fill="var(--paper)" stroke="var(--line)"/>
+          <line x1="0" y1="100" x2="260" y2="100" stroke="var(--moss)" stroke-width="1" opacity="0.6"/>
+          <text x="6" y="112" font-size="9" fill="var(--moss-dark)" font-family="IBM Plex Mono, monospace">horizon</text>
+          <line x1="40" y1="60" x2="210" y2="100" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3,3" opacity="0.35"/>
+          <line x1="110" y1="60" x2="210" y2="100" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3,3" opacity="0.35"/>
+          <line x1="40" y1="140" x2="210" y2="100" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3,3" opacity="0.35"/>
+          <line x1="110" y1="140" x2="210" y2="100" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3,3" opacity="0.35"/>
+          <circle cx="210" cy="100" r="3.5" fill="var(--clay)"/>
+          <rect x="40" y="60" width="70" height="80" fill="var(--paper)" stroke="var(--ink)" stroke-width="2.2"/>
+          <rect x="108" y="76" width="42" height="48" fill="var(--paper)" stroke="var(--ink)" stroke-width="2.2"/>
+          <line x1="40" y1="60" x2="108" y2="76" stroke="var(--ink)" stroke-width="2.2"/>
+          <line x1="110" y1="60" x2="150" y2="76" stroke="var(--ink)" stroke-width="2.2"/>
+          <line x1="40" y1="140" x2="108" y2="124" stroke="var(--ink)" stroke-width="2.2"/>
+          <line x1="110" y1="140" x2="150" y2="124" stroke="var(--ink)" stroke-width="2.2"/>
+        </svg>
+        <p style="font-size:12px;color:var(--ink-soft);text-align:center;margin:6px 0 0 0;">The dashed lines are your construction guides — every receding edge of the box aims at the same single point.</p>
+      </div>
+    </li>
+    <li><b>Draw toward the point.</b> For any edge that recedes away from you — the top and bottom of a box's side, for instance — draw it as a straight line heading toward your vanishing point, not parallel to the page edge.</li>
+  </ol>
+  <p class="brief-note">That's the whole brief. Get comfortable with one vanishing point before ever worrying about two.</p>
+
+  <div class="brief-heading">Submitting it</div>
+  <p class="brief-body">Photograph it in natural daylight if you can, straight-on rather than at an angle, on a plain surface. Our AI teacher will provide feedback and offer suggestions. You can ask for more detail for a deeper analysis, and ask questions to clear up anything that's still confusing.</p>
+
+  <div class="mount">
+    <div class="drop" id="drop">
+      <div class="drop-msg" id="dropMsg"><b>Click to choose a photo</b><br>or drag one in</div>
+    </div>
+    <div class="frame-inner"></div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*">
+
+  <label for="explanation" class="explain-label">Add an explanation of your submission <span>(optional)</span></label>
+  <textarea id="explanation" placeholder="e.g. I wanted the shadow side really dark and dramatic…" rows="2"></textarea>
+
+  <div class="actions">
+    <button id="submitBtn" disabled>Get feedback</button>
+    <button id="resetBtn">Start over</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="error" id="error"></div>
+
+  <div id="feedback"></div>
+  <div class="more-detail-row" id="moreDetailRow" style="display:none;">
+    <button id="moreDetailBtn">Want more detail? I can go deeper on this.</button>
+  </div>
+
+  <div class="milestone-row" id="milestoneRow" style="display:none;">
+    <button id="revisionUploadBtn" class="milestone-btn milestone-btn-outline">Made changes? Show me again</button>
+    <input type="file" id="revisionInput" accept="image/*" style="display:none;">
+    <button id="passBtn" class="milestone-btn milestone-btn-solid">Happy with this? Mark as passed</button>
+  </div>
+  <div id="revisionFeedback"></div>
+  <div id="passedBox" style="display:none;"></div>
+</div>
+
+<div class="wrap" id="gateMessage">
+  <p style="font-size:15px;color:var(--ink-soft);">Checking your access…</p>
+</div>
+
+<script>
+// Real access gate — checks login + active subscription before the tool is usable at all.
+(async function checkAccess(){
+  const wrap = document.getElementById('wrap');
+  const gateMessage = document.getElementById('gateMessage');
+  try {
+    const response = await fetch('/api/auth/me');
+    const data = await response.json();
+    if (data.loggedIn && data.subscriptionStatus === 'active') {
+      wrap.style.display = 'block';
+      gateMessage.style.display = 'none';
+    } else {
+      gateMessage.innerHTML = `
+        <h1 style="font-family:'Fraunces',serif;font-weight:500;font-size:26px;margin:0 0 12px 0;">This lesson is part of UAH Academy</h1>
+        <p style="font-size:15px;color:var(--ink-soft);line-height:1.55;">Please <a href="login.html">log in</a>, and enrol if you haven't already, to access this lesson.</p>
+      `;
+    }
+  } catch (err) {
+    gateMessage.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">Something went wrong checking your access. Please try again.</p>`;
+  }
+})();
+
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const submitBtn = document.getElementById('submitBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusEl = document.getElementById('status');
+const errorEl = document.getElementById('error');
+const feedbackEl = document.getElementById('feedback');
+const moreDetailRow = document.getElementById('moreDetailRow');
+const moreDetailBtn = document.getElementById('moreDetailBtn');
+const milestoneRow = document.getElementById('milestoneRow');
+const revisionUploadBtn = document.getElementById('revisionUploadBtn');
+const revisionInput = document.getElementById('revisionInput');
+const passBtn = document.getElementById('passBtn');
+const revisionFeedbackEl = document.getElementById('revisionFeedback');
+const passedBox = document.getElementById('passedBox');
+
+let imageBase64 = null;
+let imageMediaType = null;
+let lastFeedback = null;
+let priorImageBase64 = null;
+let priorImageMediaType = null;
+let revisionRound = 0;
+const MAX_REVISION_ROUNDS = 3;
+
+drop.addEventListener('click', () => fileInput.click());
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.style.borderColor = '#5C6B4F'; });
+drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
+drop.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file){
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1100;
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      imageBase64 = dataUrl.split(',')[1];
+      imageMediaType = 'image/jpeg';
+
+      drop.classList.add('has-image');
+      drop.innerHTML = '';
+      const preview = document.createElement('img');
+      preview.src = dataUrl;
+      drop.appendChild(preview);
+
+      submitBtn.disabled = false;
+      resetBtn.style.display = 'inline-block';
+      feedbackEl.style.display = 'none';
+      moreDetailRow.style.display = 'none';
+      milestoneRow.style.display = 'none';
+      revisionFeedbackEl.innerHTML = '';
+      passedBox.style.display = 'none';
+      priorImageBase64 = null;
+      priorImageMediaType = null;
+      revisionRound = 0;
+      lastFeedback = null;
+      errorEl.style.display = 'none';
+      statusEl.textContent = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+resetBtn.addEventListener('click', () => {
+  imageBase64 = null;
+  drop.classList.remove('has-image');
+  drop.innerHTML = '<div class="drop-msg"><b>Click to choose a photo</b><br>or drag one in</div>';
+  submitBtn.disabled = true;
+  resetBtn.style.display = 'none';
+  feedbackEl.style.display = 'none';
+  moreDetailRow.style.display = 'none';
+  milestoneRow.style.display = 'none';
+  revisionFeedbackEl.innerHTML = '';
+  passedBox.style.display = 'none';
+  priorImageBase64 = null;
+  priorImageMediaType = null;
+  revisionRound = 0;
+  lastFeedback = null;
+  errorEl.style.display = 'none';
+  statusEl.textContent = '';
+  fileInput.value = '';
+});
+
+submitBtn.addEventListener('click', async () => {
+  if (!imageBase64) return;
+  submitBtn.disabled = true;
+  errorEl.style.display = 'none';
+  feedbackEl.style.display = 'none';
+  statusEl.textContent = 'Looking closely…';
+
+  const explanationText = document.getElementById('explanation').value.trim();
+
+  try {
+    const response = await fetch('/api/critique', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lesson: 'intermediate1', image: imageBase64, mediaType: imageMediaType, explanation: explanationText })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Request failed (' + response.status + ')');
+
+    renderFeedback(data);
+    lastFeedback = data;
+    priorImageBase64 = imageBase64;
+    priorImageMediaType = imageMediaType;
+    moreDetailRow.style.display = 'block';
+    moreDetailBtn.disabled = false;
+    moreDetailBtn.textContent = 'Want more detail? I can go deeper on this.';
+    milestoneRow.style.display = 'flex';
+    statusEl.textContent = '';
+  } catch (err) {
+    errorEl.textContent = "Something went wrong getting feedback: " + err.message + ". Give it another try.";
+    errorEl.style.display = 'block';
+    statusEl.textContent = '';
+    console.error('Feedback request failed:', err);
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+moreDetailBtn.addEventListener('click', async () => {
+  if (!imageBase64 || !lastFeedback) return;
+  moreDetailBtn.disabled = true;
+  moreDetailBtn.textContent = 'Thinking it through…';
+  errorEl.style.display = 'none';
+
+  const explanationText = document.getElementById('explanation').value.trim();
+
+  try {
+    const response = await fetch('/api/more-detail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lesson: 'intermediate1',
+        image: imageBase64,
+        mediaType: imageMediaType,
+        explanation: explanationText,
+        lastFeedback: lastFeedback
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Request failed (' + response.status + ')');
+
+    renderMoreDetail(data.details);
+    moreDetailRow.style.display = 'none';
+  } catch (err) {
+    errorEl.textContent = "Couldn't get more detail: " + err.message + ". Give it another try.";
+    errorEl.style.display = 'block';
+    moreDetailBtn.disabled = false;
+    moreDetailBtn.textContent = 'Want more detail? I can go deeper on this.';
+    console.error('More-detail request failed:', err);
+  }
+});
+
+function renderFeedback(fb){
+  feedbackEl.innerHTML = `
+    <div class="fb-card">
+      <div class="fb-block fb-praise">
+        <div class="fb-label">What's working</div>
+        <p>${escapeHtml(fb.praise || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-fixes">
+        <div class="fb-label">Try this</div>
+        <p>${escapeHtml(fb.fix || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-encourage">
+        <div class="fb-label">Keep going</div>
+        <p>${escapeHtml(fb.encouragement || '')}</p>
+      </div>
+    </div>
+  `;
+  feedbackEl.style.display = 'block';
+}
+
+function renderMoreDetail(details){
+  const list = Array.isArray(details) ? details : [details];
+  const itemsHtml = list.map(d => '<li>' + escapeHtml(d) + '</li>').join('');
+  const block = document.createElement('div');
+  block.className = 'fb-more';
+  block.innerHTML = `<div class="fb-label">More detail</div><ul>${itemsHtml}</ul>`;
+  feedbackEl.querySelector('.fb-card').appendChild(block);
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+revisionUploadBtn.addEventListener('click', () => revisionInput.click());
+revisionInput.addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) handleRevisionFile(e.target.files[0]);
+});
+
+function handleRevisionFile(file){
+  if (revisionRound >= MAX_REVISION_ROUNDS) return;
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1100;
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      const revisedBase64 = dataUrl.split(',')[1];
+      submitRevision(revisedBase64, 'image/jpeg');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitRevision(revisedBase64, mediaType){
+  revisionUploadBtn.disabled = true;
+  revisionUploadBtn.textContent = 'Looking closely…';
+  errorEl.style.display = 'none';
+
+  try {
+    const response = await fetch('/api/revision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lesson: 'intermediate1',
+        priorImage: priorImageBase64,
+        priorMediaType: priorImageMediaType,
+        image: revisedBase64,
+        mediaType: mediaType
+      })
+    });
+    const parsed = await response.json();
+    if (!response.ok) throw new Error(parsed.error || 'Request failed (' + response.status + ')');
+
+    revisionRound += 1;
+    renderRevisionFeedback(parsed, revisionRound);
+    priorImageBase64 = revisedBase64;
+    priorImageMediaType = mediaType;
+
+    if (revisionRound >= MAX_REVISION_ROUNDS) {
+      revisionUploadBtn.style.display = 'none';
+    }
+  } catch (err) {
+    errorEl.textContent = "Something went wrong looking at the revision: " + err.message + ". Give it another try.";
+    errorEl.style.display = 'block';
+    console.error('Revision request failed:', err);
+  } finally {
+    revisionUploadBtn.disabled = false;
+    revisionUploadBtn.textContent = 'Made changes? Show me again';
+    revisionInput.value = '';
+  }
+}
+
+function renderRevisionFeedback(fb, round){
+  const wrap = document.createElement('div');
+  wrap.style.marginTop = '20px';
+  wrap.innerHTML = `
+    <div class="eyebrow" style="margin-bottom:10px;">Revised attempt ${round}</div>
+    <div class="fb-card">
+      <div class="fb-block fb-praise">
+        <div class="fb-label">What's changed</div>
+        <p>${escapeHtml(fb.praise || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-fixes">
+        <div class="fb-label">Try this next</div>
+        <p>${escapeHtml(fb.fix || '')}</p>
+      </div>
+      <hr class="rule">
+      <div class="fb-block fb-encourage">
+        <div class="fb-label">Keep going</div>
+        <p>${escapeHtml(fb.encouragement || '')}</p>
+      </div>
+    </div>
+  `;
+  revisionFeedbackEl.appendChild(wrap);
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+passBtn.addEventListener('click', () => {
+  milestoneRow.style.display = 'none';
+  passedBox.style.display = 'block';
+  passedBox.innerHTML = `
+    <div class="passed-check">&#10003;</div>
+    <div class="passed-title">Lesson Passed</div>
+    <p class="passed-note">You've engaged honestly with the feedback — that's what passing means here, not perfection. More lessons are on their way.</p>
+    <a href="account.html" class="passed-continue">Back to your course</a>
+  `;
+  passedBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+</script>
+</body>
+</html>
