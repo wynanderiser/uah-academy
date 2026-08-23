@@ -772,8 +772,9 @@ app.post('/api/claim-reward', async (req, res) => {
     const user = await getSessionUser(req);
     if (!user) return res.status(401).json({ error: 'Please log in first.' });
 
-    const { image, mediaType } = req.body;
+    const { image, mediaType, recipientName, address, postcode, message } = req.body;
     if (!image || !mediaType) return res.status(400).json({ error: 'Missing image.' });
+    if (!recipientName || !address || !postcode) return res.status(400).json({ error: 'Please fill in who the card should go to and their address.' });
     if (!RESEND_API_KEY) throw new Error('Server has no RESEND_API_KEY set yet.');
 
     const ext = mediaType === 'image/png' ? 'png' : 'jpg';
@@ -788,7 +789,11 @@ app.post('/api/claim-reward', async (req, res) => {
         from: 'UAH Academy <academy@mail.ulverstonarthouse.co.uk>',
         to: [REWARD_NOTIFY_EMAIL],
         subject: `Greetings card reward claim — ${user.email}`,
-        html: `<p>A student has just completed Beginner tier and claimed their free greetings card reward.</p><p><b>Student email:</b> ${user.email}</p><p>Their finished piece is attached.</p>`,
+        html: `<p>A student has just completed Beginner tier and claimed their free greetings card reward.</p>
+<p><b>Student email:</b> ${user.email}</p>
+<p><b>Send the card to:</b><br>${recipientName}<br>${address.replace(/\n/g, '<br>')}<br>${postcode}</p>
+<p><b>Message to write inside:</b><br>${message ? message.replace(/\n/g, '<br>') : '(none provided)'}</p>
+<p>Their finished piece is attached.</p>`,
         attachments: [{ content: image, filename: `finished-piece.${ext}` }]
       })
     });
