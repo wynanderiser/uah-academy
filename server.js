@@ -33,7 +33,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
       const priceId = subscription.items.data[0].price.id;
       const plan = priceId === STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly';
-      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+      const rawPeriodEnd = subscription.items.data[0]?.current_period_end;
+      const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
 
       await pool.query(
         `UPDATE users SET stripe_customer_id = $1, subscription_status = 'active', subscription_plan = $2, current_period_end = $3 WHERE id = $4`,
@@ -45,7 +46,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object;
       const status = subscription.status === 'active' ? 'active' : 'inactive';
-      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+      const rawPeriodEnd = subscription.items.data[0]?.current_period_end;
+      const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
 
       await pool.query(
         `UPDATE users SET subscription_status = $1, current_period_end = $2 WHERE stripe_customer_id = $3`,
