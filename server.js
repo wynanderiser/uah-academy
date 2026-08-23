@@ -228,6 +228,13 @@ const LESSONS = {
     scope: `1. Deliberate colour relationship (does the palette genuinely reflect a real relationship — complementary, analogous, or split-complementary — rather than an arbitrary assortment of unrelated colours)
 2. Restraint (is the palette genuinely limited to a handful of related colours, rather than diluted by extra, unrelated colours added without a clear reason)
 3. Everything already built (proportion, light, edges, composition) still needs to be present — colour is a new layer added on top, not a replacement for the fundamentals`
+  },
+  intermediate5: {
+    tier: 'intermediate',
+    title: 'Intermediate Lesson 5: Composition in Depth — Negative Space and Framing',
+    scope: `1. Considered negative space (does the empty space around the subject have its own believable, deliberate shape, rather than reading as blank leftover paper)
+2. Framing (is there something within the scene — real or arranged — that partially frames or overlaps the subject, drawing the eye inward, rather than the subject sitting fully exposed with nothing around it)
+3. Everything already built (proportion, light, edges, thirds, leading lines) still needs to be present — these are two further deliberate tools, not a replacement for the fundamentals`
   }
 };
 
