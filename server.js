@@ -207,6 +207,13 @@ const LESSONS = {
     scope: `1. Use of a single vanishing point and horizon line (do receding edges genuinely converge toward one consistent point, rather than staying parallel or converging inconsistently)
 2. Proportion and form under perspective (do objects still read as believable in scale and shape once perspective is applied, not distorted or flattened)
 3. Deliberate horizon placement (does the horizon's position — centre, upper third, or lower third — feel like a genuine choice suited to the scene, not an accidental default, and does that choice support the balance of ground versus sky the piece seems to be going for)`
+  },
+  intermediate2: {
+    tier: 'intermediate',
+    title: 'Intermediate Lesson 2: Life vs Reference',
+    scope: `1. Honest proportion and observation (does the piece reflect genuine, careful looking, rather than a mechanical or distorted copy of a source)
+2. Signs of photographic distortion faithfully copied rather than corrected (flattened depth, odd exposure-driven contrast, a lens-distorted proportion) — if this is the photo-reference drawing specifically
+3. Liveliness and presence (does the piece feel like it was genuinely observed, with the small honest imperfections that come from real looking, rather than feeling mechanically traced)`
   }
 };
 
