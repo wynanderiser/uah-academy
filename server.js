@@ -765,29 +765,6 @@ app.post('/api/auth/logout', async (req, res) => {
   }
 });
 
-// ============================================================
-// !! TEMPORARY TEST-ONLY ROUTE — REMOVE BEFORE REAL LAUNCH !!
-// Lets whoever is logged in flip their own account to "active" without
-// paying anything, so the member experience can be built and tested
-// while Stripe access is unavailable. Anyone could grant themselves
-// free membership through this while it exists — it must be deleted
-// before real students ever use this site.
-// ============================================================
-app.post('/api/dev/activate-me', async (req, res) => {
-  try {
-    const user = await getSessionUser(req);
-    if (!user) return res.status(401).json({ error: 'Please log in first.' });
-    await pool.query(
-      `UPDATE users SET subscription_status = 'active', subscription_plan = 'monthly' WHERE id = $1`,
-      [user.id]
-    );
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('dev/activate-me error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 const REWARD_NOTIFY_EMAIL = process.env.REWARD_NOTIFY_EMAIL || 'david@ulverstonarthouse.co.uk';
 
 app.post('/api/claim-reward', async (req, res) => {
