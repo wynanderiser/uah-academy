@@ -235,6 +235,14 @@ const LESSONS = {
     scope: `1. Considered negative space (does the empty space around the subject have its own believable, deliberate shape, rather than reading as blank leftover paper)
 2. Framing (is there something within the scene — real or arranged — that partially frames or overlaps the subject, drawing the eye inward, rather than the subject sitting fully exposed with nothing around it)
 3. Everything already built (proportion, light, edges, thirds, leading lines) still needs to be present — these are two further deliberate tools, not a replacement for the fundamentals`
+  },
+  intermediate6: {
+    tier: 'intermediate',
+    title: 'Intermediate Lesson 6: Short Themed Series',
+    scope: `This is the final Intermediate lesson — a synthesis, not a new isolated skill. The student made three pieces exploring one theme and is submitting the strongest for feedback. Assess it as a considered whole, across everything built across this tier:
+1. Perspective, honest observation, and composition (do the fundamentals from earlier in this tier genuinely hold — spatial conviction, real looking rather than photo-copying, a clear focal point)
+2. Colour and negative space, where relevant to this particular piece (deliberate, related colour choices; considered space around the subject)
+3. Overall coherence and intent (does the piece feel like a genuine, considered part of a deliberate series, rather than an isolated exercise)`
   }
 };
 
