@@ -710,9 +710,23 @@ passBtn.addEventListener('click', () => {
     <div class="passed-check">&#10003;</div>
     <div class="passed-title">Beginner Tier Complete</div>
     <p class="passed-note">You've engaged honestly with the feedback across six lessons now — that's what passing means here, not perfection. Intermediate is still being built, but you've already come further than most people ever try.</p>
-    <div style="margin:20px 0;padding:18px;background:var(--parchment);border-radius:2px;">
-      <p style="font-size:14px;color:var(--ink);margin:0 0 12px 0;"><b>A small thank-you:</b> we'd love to turn this piece into a real UAH greetings card, completely free, ready to send to someone.</p>
-      <button id="claimRewardBtn" style="width:100%;background:var(--clay);color:#fff;border:none;padding:11px;border-radius:2px;font-family:'Work Sans',sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Claim your free greetings card</button>
+    <div style="margin:20px 0;padding:18px;background:var(--parchment);border-radius:2px;text-align:left;">
+      <p style="font-size:14px;color:var(--ink);margin:0 0 14px 0;"><b>A small thank-you:</b> we'd love to turn this piece into a real UAH greetings card, completely free, ready to send to someone.</p>
+      <div id="rewardForm">
+        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Who's it for?</label>
+        <input type="text" id="recipientName" placeholder="Recipient's name" style="width:100%;padding:9px;margin-bottom:10px;border:1px solid var(--line);border-radius:2px;font-family:'Work Sans',sans-serif;font-size:14px;box-sizing:border-box;">
+
+        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Postal address</label>
+        <textarea id="recipientAddress" rows="2" placeholder="Address line(s)" style="width:100%;padding:9px;margin-bottom:10px;border:1px solid var(--line);border-radius:2px;font-family:'Work Sans',sans-serif;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
+
+        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Postcode</label>
+        <input type="text" id="recipientPostcode" placeholder="Postcode" style="width:100%;padding:9px;margin-bottom:10px;border:1px solid var(--line);border-radius:2px;font-family:'Work Sans',sans-serif;font-size:14px;box-sizing:border-box;">
+
+        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Message to write inside (optional)</label>
+        <textarea id="cardMessage" rows="3" placeholder="e.g. Congratulations! Thought you'd love this one." style="width:100%;padding:9px;margin-bottom:12px;border:1px solid var(--line);border-radius:2px;font-family:'Work Sans',sans-serif;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
+
+        <button id="claimRewardBtn" style="width:100%;background:var(--clay);color:#fff;border:none;padding:11px;border-radius:2px;font-family:'Work Sans',sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Send my card</button>
+      </div>
       <p id="rewardStatus" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0 0;"></p>
     </div>
     <a href="account.html" class="passed-continue">Back to your course</a>
@@ -722,21 +736,31 @@ passBtn.addEventListener('click', () => {
   document.getElementById('claimRewardBtn').addEventListener('click', async (e) => {
     const btn = e.target;
     const statusEl = document.getElementById('rewardStatus');
+    const recipientName = document.getElementById('recipientName').value.trim();
+    const address = document.getElementById('recipientAddress').value.trim();
+    const postcode = document.getElementById('recipientPostcode').value.trim();
+    const message = document.getElementById('cardMessage').value.trim();
+
+    if (!recipientName || !address || !postcode) {
+      statusEl.textContent = "Please fill in who it's for and their full address before sending.";
+      return;
+    }
+
     btn.disabled = true;
     btn.textContent = 'Sending…';
     try {
       const response = await fetch('/api/claim-reward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: priorImageBase64, mediaType: priorImageMediaType })
+        body: JSON.stringify({ image: priorImageBase64, mediaType: priorImageMediaType, recipientName, address, postcode, message })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Something went wrong.');
-      btn.style.display = 'none';
-      statusEl.textContent = "Claimed — we'll be in touch by email about your card.";
+      document.getElementById('rewardForm').style.display = 'none';
+      statusEl.textContent = "Claimed — we'll get your card sent out.";
     } catch (err) {
       btn.disabled = false;
-      btn.textContent = 'Claim your free greetings card';
+      btn.textContent = 'Send my card';
       statusEl.textContent = 'Something went wrong: ' + err.message + '. Please try again.';
     }
   });
