@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAH Academy — Achievements Gallery</title>
+<meta name="description" content="Real work from real students at UAH Academy — shared with their own permission, from their first piece onward.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#EDE6D6;
+    --paper:#FBF8F2;
+    --ink:#2B2621;
+    --ink-soft:#5C544A;
+    --moss:#5C6B4F;
+    --moss-dark:#46543C;
+    --clay:#A15C3E;
+    --slate:#5B7C8D;
+    --line:#D9CFBC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--parchment);
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:900px;margin:0 auto;padding:64px 24px 90px;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    text-align:center;
+    margin-bottom:16px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:clamp(28px, 4.5vw, 42px);
+    line-height:1.15;
+    text-align:center;
+    margin:0 0 12px 0;
+  }
+  .sub{
+    text-align:center;
+    font-size:15.5px;
+    color:var(--ink-soft);
+    max-width:52ch;
+    margin:0 auto 48px;
+    line-height:1.6;
+  }
+  .loading, .empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:15px;
+    padding:40px 20px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(230px, 1fr));
+    gap:24px;
+  }
+  .card{
+    background:var(--paper);
+    border-radius:2px;
+    overflow:hidden;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+  }
+  .card img{
+    width:100%;
+    aspect-ratio:1;
+    object-fit:cover;
+    display:block;
+    background:var(--parchment);
+  }
+  .card-body{padding:14px 16px;}
+  .card-name{
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+    margin-bottom:3px;
+  }
+  .card-lesson{
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .back-link{
+    display:block;
+    text-align:center;
+    margin-top:56px;
+    font-family:'Work Sans',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    color:var(--slate);
+    text-decoration:none;
+  }
+  .back-link:hover{color:var(--moss-dark);text-decoration:underline;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">UAH Academy</div>
+  <h1>Real work, from real students.</h1>
+  <p class="sub">Every piece here was shared with the student's own permission, at the exact moment they passed the lesson it came from — nothing curated, nothing staged.</p>
+
+  <div id="content">
+    <p class="loading">Loading the gallery…</p>
+  </div>
+
+  <a href="uah-side-shoots-gallery.html" class="back-link">← Back to UAH Academy</a>
+</div>
+
+<script>
+(async function loadGallery(){
+  const content = document.getElementById('content');
+  try {
+    const response = await fetch('/api/gallery');
+    const data = await response.json();
+    const pieces = data.pieces || [];
+
+    if (pieces.length === 0) {
+      content.innerHTML = `<p class="empty">Nothing shared here just yet — this is a genuinely new space, and it grows as students choose to add their own work.</p>`;
+      return;
+    }
+
+    content.innerHTML = `<div class="grid">${pieces.map(p => `
+      <div class="card">
+        <img src="data:${p.mediaType};base64,${p.image}" alt="${p.displayName}'s piece — ${p.lessonTitle}">
+        <div class="card-body">
+          <div class="card-name">${p.displayName}</div>
+          <div class="card-lesson">${p.lessonTitle}</div>
+        </div>
+      </div>
+    `).join('')}</div>`;
+  } catch (e) {
+    content.innerHTML = `<p class="empty">Something went wrong loading the gallery. Please try again.</p>`;
+    console.error('Gallery load failed:', e);
+  }
+})();
+</script>
+</body>
+</html>

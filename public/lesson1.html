@@ -721,9 +721,45 @@ passBtn.addEventListener('click', async () => {
     <div class="passed-check">&#10003;</div>
     <div class="passed-title">Lesson Passed</div>
     <p class="passed-note">You've engaged honestly with the feedback — that's what passing means here, not perfection.</p>
+    <div style="margin:20px 0;padding:16px;background:var(--parchment);border-radius:2px;text-align:left;">
+      <p style="font-size:14px;color:var(--ink);margin:0 0 12px 0;">Proud of this one? We'd love to show it off — entirely with your permission.</p>
+      <div id="galleryOptForm">
+        <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Name to show alongside it</label>
+        <input type="text" id="galleryDisplayName" placeholder="e.g. first name, or a nickname — never your email" style="width:100%;padding:9px;margin-bottom:10px;border:1px solid var(--line);border-radius:2px;font-family:'Work Sans',sans-serif;font-size:14px;box-sizing:border-box;">
+        <button id="galleryOptInBtn" style="width:100%;background:var(--slate);color:#fff;border:none;padding:10px;border-radius:2px;font-family:'Work Sans',sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Yes, add it to the achievements gallery</button>
+      </div>
+      <p id="galleryOptStatus" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0 0;"></p>
+    </div>
     <a href="lesson2.html" class="passed-continue">Continue to Lesson 2</a>
   `;
   passedBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  document.getElementById('galleryOptInBtn').addEventListener('click', async (e) => {
+    const btn = e.target;
+    const statusEl = document.getElementById('galleryOptStatus');
+    const displayName = document.getElementById('galleryDisplayName').value.trim();
+    if (!displayName) {
+      statusEl.textContent = 'Please add a name first — never your email, just something to show alongside it.';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      const response = await fetch('/api/gallery/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson: 'lesson1', image: priorImageBase64, mediaType: priorImageMediaType, displayName })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Something went wrong.');
+      document.getElementById('galleryOptForm').style.display = 'none';
+      statusEl.textContent = "Added — thank you for sharing it.";
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Yes, add it to the achievements gallery';
+      statusEl.textContent = err.message;
+    }
+  });
 });
 
 </script>
