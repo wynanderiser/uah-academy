@@ -105,11 +105,13 @@ async function initSchema() {
         subscription_status TEXT DEFAULT 'inactive',
         subscription_plan TEXT,
         current_period_end TIMESTAMPTZ,
-        signup_offer TEXT
+        signup_offer TEXT,
+        is_admin BOOLEAN DEFAULT FALSE
       );
     `);
-    // safe migration for the already-live database — adds the column only if it isn't already there
+    // safe migrations for the already-live database — each only adds the column if it isn't already there
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_offer TEXT;`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS login_tokens (
         id SERIAL PRIMARY KEY,
@@ -839,8 +841,12 @@ app.get('/api/auth/me', async (req, res) => {
     res.json({
       loggedIn: true,
       email: user.email,
-      subscriptionStatus: user.subscription_status,
-      subscriptionPlan: user.subscription_plan
+      // Admins see every gate as unlocked without needing a real subscription — every existing
+      // access check across lesson pages just tests subscriptionStatus === 'active', so this one
+      // change is enough; nothing on the lesson pages themselves needs editing.
+      subscriptionStatus: user.is_admin ? 'active' : user.subscription_status,
+      subscriptionPlan: user.is_admin ? 'admin' : user.subscription_plan,
+      isAdmin: !!user.is_admin
     });
   } catch (err) {
     console.error('me error:', err);
@@ -852,7 +858,8 @@ app.get('/api/auth/me', async (req, res) => {
 // actually earned access to, both here and on each lesson page itself.
 const LESSON_SEQUENCE = [
   'lesson1', 'lesson2', 'lesson3', 'lesson4', 'lesson5', 'lesson6',
-  'intermediate1', 'intermediate2', 'intermediate3', 'intermediate4', 'intermediate5', 'intermediate6'
+  'intermediate1', 'intermediate2', 'intermediate3', 'intermediate4', 'intermediate5', 'intermediate6',
+  'advanced1', 'advanced2', 'advanced3', 'advanced4', 'advanced5'
 ];
 
 app.get('/api/lessons/progress', async (req, res) => {
