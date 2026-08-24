@@ -844,6 +844,50 @@ app.get('/api/founder-slots', async (req, res) => {
   }
 });
 
+app.post('/api/pause-membership', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+    if (user.subscription_status !== 'active') return res.status(400).json({ error: 'Your membership is not currently active.' });
+    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No subscription found on your account.' });
+
+    const subs = await stripeClient.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
+    if (!subs.data.length) return res.status(400).json({ error: 'Could not find an active subscription to pause.' });
+
+    await stripeClient.subscriptions.update(subs.data[0].id, {
+      pause_collection: { behavior: 'void' }
+    });
+
+    await pool.query(`UPDATE users SET subscription_status = 'paused' WHERE id = $1`, [user.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('pause-membership error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/resume-membership', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+    if (user.subscription_status !== 'paused') return res.status(400).json({ error: 'Your membership is not currently paused.' });
+    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No subscription found on your account.' });
+
+    const subs = await stripeClient.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
+    if (!subs.data.length) return res.status(400).json({ error: 'Could not find your subscription to resume.' });
+
+    await stripeClient.subscriptions.update(subs.data[0].id, {
+      pause_collection: ''
+    });
+
+    await pool.query(`UPDATE users SET subscription_status = 'active' WHERE id = $1`, [user.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('resume-membership error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
     const user = await getSessionUser(req);
