@@ -8,6 +8,12 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY;
 const STRIPE_PRICE_ANNUAL = process.env.STRIPE_PRICE_ANNUAL;
 
+// ============ FOUNDER MEMBER OFFER ============
+// 33% off — roughly £15 to £10/month, or £150 to £100 for a first year —
+// genuinely capped at the first 25 people, checked live against the real database every time.
+const FOUNDER_COUPON_ID = process.env.STRIPE_FOUNDER_COUPON_ID;
+const FOUNDER_SLOTS_CAP = 25;
+
 const app = express();
 app.set('trust proxy', 1); // so req.ip reflects the real visitor's address behind Render's proxy
 
@@ -29,6 +35,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const userId = session.client_reference_id;
       const customerId = session.customer;
       const subscriptionId = session.subscription;
+      const wasFounderOffer = session.metadata && session.metadata.founderOffer === 'true';
 
       const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
       const priceId = subscription.items.data[0].price.id;
@@ -37,10 +44,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
 
       await pool.query(
-        `UPDATE users SET stripe_customer_id = $1, subscription_status = 'active', subscription_plan = $2, current_period_end = $3 WHERE id = $4`,
-        [customerId, plan, currentPeriodEnd, userId]
+        `UPDATE users SET stripe_customer_id = $1, subscription_status = 'active', subscription_plan = $2, current_period_end = $3, signup_offer = COALESCE(signup_offer, $5) WHERE id = $4`,
+        [customerId, plan, currentPeriodEnd, userId, wasFounderOffer ? 'founder' : null]
       );
-      console.log(`Subscription activated for user ${userId} (${plan})`);
+      console.log(`Subscription activated for user ${userId} (${plan})${wasFounderOffer ? ' — founder rate' : ''}`);
     }
 
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
@@ -86,9 +93,12 @@ async function initSchema() {
         stripe_customer_id TEXT,
         subscription_status TEXT DEFAULT 'inactive',
         subscription_plan TEXT,
-        current_period_end TIMESTAMPTZ
+        current_period_end TIMESTAMPTZ,
+        signup_offer TEXT
       );
     `);
+    // safe migration for the already-live database — adds the column only if it isn't already there
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_offer TEXT;`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS login_tokens (
         id SERIAL PRIMARY KEY,
@@ -810,6 +820,30 @@ app.post('/api/claim-reward', async (req, res) => {
   }
 });
 
+app.get('/api/founder-slots', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT COUNT(*) FROM users WHERE signup_offer = 'founder'`);
+    const used = parseInt(result.rows[0].count, 10);
+    const remaining = Math.max(0, FOUNDER_SLOTS_CAP - used);
+    const available = remaining > 0 && !!FOUNDER_COUPON_ID;
+
+    let percentOff = null;
+    if (available) {
+      try {
+        const coupon = await stripeClient.coupons.retrieve(FOUNDER_COUPON_ID);
+        percentOff = coupon.percent_off;
+      } catch (e) {
+        console.error('Could not fetch founder coupon details:', e.message);
+      }
+    }
+
+    res.json({ remaining, cap: FOUNDER_SLOTS_CAP, available, percentOff });
+  } catch (err) {
+    console.error('founder-slots error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
     const user = await getSessionUser(req);
@@ -830,6 +864,17 @@ app.post('/api/create-checkout-session', async (req, res) => {
       sessionParams.customer = user.stripe_customer_id;
     } else {
       sessionParams.customer_email = user.email;
+    }
+
+    // Check real, live founder-slot availability right before creating the session —
+    // never a cached or assumed number, always the true current count.
+    if (FOUNDER_COUPON_ID) {
+      const slotsResult = await pool.query(`SELECT COUNT(*) FROM users WHERE signup_offer = 'founder'`);
+      const used = parseInt(slotsResult.rows[0].count, 10);
+      if (used < FOUNDER_SLOTS_CAP) {
+        sessionParams.discounts = [{ coupon: FOUNDER_COUPON_ID }];
+        sessionParams.metadata = { founderOffer: 'true' };
+      }
     }
 
     const checkoutSession = await stripeClient.checkout.sessions.create(sessionParams);
