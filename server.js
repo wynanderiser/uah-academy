@@ -129,7 +129,16 @@ async function initSchema() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
-    console.log('Database schema ready (users, login_tokens, sessions).');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lesson_progress (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        lesson_slug TEXT NOT NULL,
+        passed_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, lesson_slug)
+      );
+    `);
+    console.log('Database schema ready (users, login_tokens, sessions, lesson_progress).');
   } catch (err) {
     console.error('Database schema setup failed:', err.message);
   }
@@ -768,6 +777,42 @@ app.get('/api/auth/me', async (req, res) => {
     });
   } catch (err) {
     console.error('me error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// The full, linear order lessons unlock in — used to work out what someone's
+// actually earned access to, both here and on each lesson page itself.
+const LESSON_SEQUENCE = [
+  'lesson1', 'lesson2', 'lesson3', 'lesson4', 'lesson5', 'lesson6',
+  'intermediate1', 'intermediate2', 'intermediate3', 'intermediate4', 'intermediate5', 'intermediate6'
+];
+
+app.get('/api/lessons/progress', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+    const result = await pool.query(`SELECT lesson_slug FROM lesson_progress WHERE user_id = $1`, [user.id]);
+    res.json({ passed: result.rows.map(r => r.lesson_slug) });
+  } catch (err) {
+    console.error('lessons/progress error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/lessons/mark-passed', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+    const { lesson } = req.body;
+    if (!LESSON_SEQUENCE.includes(lesson)) return res.status(400).json({ error: 'Unknown lesson.' });
+    await pool.query(
+      `INSERT INTO lesson_progress (user_id, lesson_slug) VALUES ($1, $2) ON CONFLICT (user_id, lesson_slug) DO NOTHING`,
+      [user.id, lesson]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('lessons/mark-passed error:', err);
     res.status(500).json({ error: err.message });
   }
 });
