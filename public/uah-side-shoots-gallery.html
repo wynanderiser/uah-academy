@@ -313,6 +313,47 @@
     box-shadow:0 6px 14px rgba(0,0,0,0.4);
   }
 
+  .faq{
+    max-width:560px;
+    margin:0 auto 44px;
+  }
+  .faq-heading{
+    text-align:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--brass);
+    margin-bottom:20px;
+  }
+  .faq details{
+    border-bottom:1px solid rgba(201,162,39,0.2);
+    padding:14px 4px;
+  }
+  .faq summary{
+    font-family:'Work Sans',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--cream);
+    cursor:pointer;
+    list-style:none;
+  }
+  .faq summary::-webkit-details-marker{display:none;}
+  .faq summary::before{
+    content:"+";
+    color:var(--brass);
+    font-weight:600;
+    display:inline-block;
+    width:18px;
+  }
+  .faq details[open] summary::before{content:"–";}
+  .faq p{
+    font-family:'Work Sans',sans-serif;
+    font-size:14px;
+    color:rgba(237,228,211,0.75);
+    line-height:1.6;
+    margin:10px 0 0 18px;
+  }
   .cta-row{
     text-align:center;
     margin-top:64px;
@@ -459,6 +500,45 @@
       </div></div></div>
       <div class="course-tier-plaque">Advanced</div>
     </div>
+  </div>
+
+  <div class="faq">
+    <div class="faq-heading">A few honest answers</div>
+
+    <details>
+      <summary>Is the feedback genuinely personal, or just generic AI output?</summary>
+      <p>Genuinely personal. The AI looks at your actual photo, every time — not a script or a template. It tells you honestly when something's working and gives you one real thing to try next, specific to what you actually made. If a piece is already excellent, it says so, rather than inventing a fix nobody needs.</p>
+    </details>
+
+    <details>
+      <summary>What happens to my images? Is my work still mine?</summary>
+      <p>Completely yours, always. We never claim any rights over what you create — copyright stays with you, full stop. If you'd ever like a piece shown in our community gallery, that's entirely optional, and something you'd choose yourself.</p>
+    </details>
+
+    <details>
+      <summary>I've genuinely never drawn before — is this actually for me?</summary>
+      <p>Yes, more than for anyone else. This course exists for people who'd normally say "I can't draw" or "I'm just not creative." You're creating more than you realise already — this just gives it real structure, and someone paying proper attention.</p>
+    </details>
+
+    <details>
+      <summary>Can I try it before paying anything?</summary>
+      <p>Yes — one side-shoot piece is completely free, with real feedback, no card required. See how it actually feels before deciding on anything.</p>
+    </details>
+
+    <details>
+      <summary>Can I cancel anytime?</summary>
+      <p>Yes, anytime, no minimum commitment.</p>
+    </details>
+
+    <details>
+      <summary>How is this different from something like Skillshare?</summary>
+      <p>Skillshare and similar platforms give you videos to watch — genuinely useful, but nobody ever actually looks at what you make. Here, every piece you submit gets real, individual feedback. That's the whole point.</p>
+    </details>
+
+    <details>
+      <summary>Can I actually sell what I make here?</summary>
+      <p>Yes — separately from the Academy, Ulverston Art House also runs a real seller marketplace. Once you've made something you're proud of, you can register as a vendor and start selling it yourself, right on the same site. Create it here, sell it here too.</p>
+    </details>
   </div>
 
   <div class="cta-row" id="ctaRow">
