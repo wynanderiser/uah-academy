@@ -129,9 +129,10 @@ const card = document.getElementById('card');
     return;
   }
   const isActive = data.subscriptionStatus === 'active';
+  const isPaused = data.subscriptionStatus === 'paused';
 
   let founderHtml = '';
-  if (!isActive) {
+  if (!isActive && !isPaused) {
     try {
       const slotsResponse = await fetch('/api/founder-slots');
       const slots = await slotsResponse.json();
@@ -148,7 +149,7 @@ const card = document.getElementById('card');
     }
   }
 
-  const subscribeHtml = isActive ? '' : `
+  const subscribeHtml = (isActive || isPaused) ? '' : `
     <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
       <div class="field-label" style="margin-bottom:10px;">Ready to enrol?</div>
       ${founderHtml}
@@ -175,6 +176,21 @@ const card = document.getElementById('card');
       <a href="intermediate5.html" class="lesson-link">Lesson 5: Negative Space and Framing</a>
       <a href="intermediate6.html" class="lesson-link">Lesson 6: Short Themed Series</a>
     </div>
+    <div class="field" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+      <button id="pauseBtn" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:100%;">Pause my membership</button>
+      <div id="pauseConfirm" style="display:none;margin-top:10px;padding:12px;background:var(--parchment);border-radius:2px;">
+        <p style="font-size:13px;color:var(--ink);margin:0 0 10px 0;">Pausing stops billing immediately and holds your access until you resume — your progress stays exactly as it is. Are you sure?</p>
+        <button id="pauseConfirmYes" style="background:var(--clay);color:#fff;border:none;width:48%;margin-right:4%;">Yes, pause it</button>
+        <button id="pauseConfirmNo" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:48%;">Never mind</button>
+      </div>
+    </div>
+  ` : '';
+  const pausedHtml = isPaused ? `
+    <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
+      <p style="font-size:14px;color:var(--ink);margin:0 0 14px 0;">Your membership is paused — nothing's being charged, and your progress is exactly where you left it. Resume whenever you're ready.</p>
+      <button id="resumeBtn" style="background:var(--moss);color:#fff;border:none;width:100%;">Resume my membership</button>
+      <p id="resumeStatus" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0 0;"></p>
+    </div>
   ` : '';
   card.innerHTML = `
     <div class="eyebrow">UAH Academy</div>
@@ -188,6 +204,7 @@ const card = document.getElementById('card');
       <span class="status-badge ${isActive ? 'active' : ''}">${data.subscriptionStatus || 'inactive'}</span>
     </div>
     ${memberAreaHtml}
+    ${pausedHtml}
     ${subscribeHtml}
     <button id="logoutBtn" style="margin-top:16px;">Log out</button>
   `;
@@ -210,6 +227,51 @@ const card = document.getElementById('card');
     const annualBtn = document.getElementById('subscribeAnnualBtn');
     if (monthlyBtn) monthlyBtn.addEventListener('click', () => startCheckout('monthly'));
     if (annualBtn) annualBtn.addEventListener('click', () => startCheckout('annual'));
+
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', () => {
+        pauseBtn.style.display = 'none';
+        document.getElementById('pauseConfirm').style.display = 'block';
+      });
+      document.getElementById('pauseConfirmNo').addEventListener('click', () => {
+        document.getElementById('pauseConfirm').style.display = 'none';
+        pauseBtn.style.display = 'block';
+      });
+      document.getElementById('pauseConfirmYes').addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        e.target.textContent = 'Pausing…';
+        try {
+          const response = await fetch('/api/pause-membership', { method: 'POST' });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Something went wrong.');
+          window.location.reload();
+        } catch (err) {
+          alert(err.message);
+          e.target.disabled = false;
+          e.target.textContent = 'Yes, pause it';
+        }
+      });
+    }
+
+    const resumeBtn = document.getElementById('resumeBtn');
+    if (resumeBtn) {
+      resumeBtn.addEventListener('click', async () => {
+        resumeBtn.disabled = true;
+        resumeBtn.textContent = 'Resuming…';
+        const statusEl = document.getElementById('resumeStatus');
+        try {
+          const response = await fetch('/api/resume-membership', { method: 'POST' });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Something went wrong.');
+          window.location.reload();
+        } catch (err) {
+          statusEl.textContent = err.message;
+          resumeBtn.disabled = false;
+          resumeBtn.textContent = 'Resume my membership';
+        }
+      });
+    }
 })().catch(() => {
   card.innerHTML = `<div class="eyebrow">UAH Academy</div><h1>Something went wrong</h1><p style="font-size:14.5px;color:var(--ink-soft);">Could not check your login status. Please try again.</p>`;
 });
