@@ -138,7 +138,18 @@ async function initSchema() {
         UNIQUE(user_id, lesson_slug)
       );
     `);
-    console.log('Database schema ready (users, login_tokens, sessions, lesson_progress).');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS gallery_submissions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        lesson_slug TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        image_base64 TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log('Database schema ready (users, login_tokens, sessions, lesson_progress, gallery_submissions).');
   } catch (err) {
     console.error('Database schema setup failed:', err.message);
   }
@@ -813,6 +824,45 @@ app.post('/api/lessons/mark-passed', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('lessons/mark-passed error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/gallery/submit', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+    const { lesson, image, mediaType, displayName } = req.body;
+    if (!LESSON_SEQUENCE.includes(lesson)) return res.status(400).json({ error: 'Unknown lesson.' });
+    if (!image || !mediaType) return res.status(400).json({ error: 'Missing image.' });
+    if (!displayName || !displayName.trim()) return res.status(400).json({ error: 'Please add a name to show alongside your piece.' });
+
+    await pool.query(
+      `INSERT INTO gallery_submissions (user_id, lesson_slug, display_name, image_base64, media_type) VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, lesson, displayName.trim().slice(0, 60), image, mediaType]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('gallery/submit error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/gallery', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT lesson_slug, display_name, image_base64, media_type, created_at FROM gallery_submissions ORDER BY created_at DESC LIMIT 60`
+    );
+    const pieces = result.rows.map(row => ({
+      lessonTitle: LESSONS[row.lesson_slug] ? LESSONS[row.lesson_slug].title : row.lesson_slug,
+      displayName: row.display_name,
+      image: row.image_base64,
+      mediaType: row.media_type,
+      createdAt: row.created_at
+    }));
+    res.json({ pieces });
+  } catch (err) {
+    console.error('gallery error:', err);
     res.status(500).json({ error: err.message });
   }
 });
