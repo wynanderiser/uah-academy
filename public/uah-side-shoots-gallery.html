@@ -476,7 +476,7 @@
     if (!slots.available) return;
     const pct = slots.percentOff ? Math.round(slots.percentOff) : '';
     const banner = document.getElementById('founderBanner');
-    banner.innerHTML = `<b>Founder Member offer:</b> ${pct}% off your first 3 months — genuinely just ${slots.remaining} of ${slots.cap} spots left.`;
+    banner.innerHTML = `<b>Founder Member offer:</b> ${pct}% off your first 3 months — just ${slots.remaining} of ${slots.cap} spots left.`;
     banner.style.display = 'block';
   } catch (e) {
     console.error('Could not load founder offer:', e);
