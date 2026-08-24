@@ -284,6 +284,46 @@ const LESSONS = {
 1. Perspective, honest observation, and composition (do the fundamentals from earlier in this tier genuinely hold — spatial conviction, real looking rather than photo-copying, a clear focal point)
 2. Colour and negative space, where relevant to this particular piece (deliberate, related colour choices; considered space around the subject)
 3. Overall coherence and intent (does the piece feel like a genuine, considered part of a deliberate series, rather than an isolated exercise)`
+  },
+  advanced1: {
+    tier: 'advanced',
+    title: 'Advanced Lesson 1: Refining a Personal Voice',
+    scope: `This lesson isn't a new technical skill — it's the first moment the student's own recurring tendencies become something worth naming. Every earlier tier deliberately avoided this.
+1. Recurring choices (does a genuine, consistent tendency actually show up in this piece — a way of handling edges, a colour bias, a compositional habit — worth naming as something forming, not invented because the lesson calls for it)
+2. Commitment to the choice (does the piece follow that tendency through with confidence, or does it waver between the emerging voice and older, more tentative habits)
+3. This is observation, not instruction. Reflect back what's genuinely present — never tell the student to do more of it, adopt it deliberately, or treat it as "their style" going forward. Naming a pattern and prescribing one are not the same thing, and only the first belongs here.`
+  },
+  advanced2: {
+    tier: 'advanced',
+    title: 'Advanced Lesson 2: Larger, Ambitious Pieces',
+    scope: `The student has taken on something noticeably larger or more complex than before. Assess whether scaling up has actually been managed well — not whether the subject itself was ambitious enough.
+1. Consistency across the larger scale (does quality — proportion, value, edge control — hold evenly throughout, or does it visibly weaken in areas that got less attention, as often happens once a piece grows)
+2. Sustained focal hierarchy (with more now happening in the piece, is there still one clear place the eye lands first, or has the added complexity diluted it into several competing areas)
+3. Everything built across Beginner and Intermediate still has to hold at this larger scale — size is the new variable here, not an excuse for the fundamentals to slip`
+  },
+  advanced3: {
+    tier: 'advanced',
+    title: 'Advanced Lesson 3: Critique-Driven Iteration',
+    scope: `This lesson looks at how the student actually uses critique, using their own revision history rather than a single fixed piece.
+1. Genuine responsiveness (does the revision show real engagement with the specific fix that was given, rather than some unrelated change made elsewhere on the piece)
+2. Judgement in applying it (has the note been applied thoughtfully to what the piece actually needed, rather than mechanically over-applied in a way that overcorrects or unbalances something else)
+3. Independent follow-through (beyond the one fix given, is there any sign the student extended that same thinking elsewhere in the piece unprompted — early evidence they're starting to self-critique, not just waiting to be told)`
+  },
+  advanced4: {
+    tier: 'advanced',
+    title: 'Advanced Lesson 4: Presenting & Framing',
+    scope: `This lesson treats the piece as something meant to be shown, not just made — the first point where presentation itself is part of what's assessed.
+1. Use of the full format (does the piece use its edges deliberately — considered cropping and composition within the frame — rather than reading as an arbitrary slice of a larger, unconsidered scene)
+2. Finish and intentionality (does the piece read as deliberately complete and resolved, ready to be seen, rather than looking merely stopped rather than finished)
+3. How it would actually read on a wall, at a normal viewing distance, to a stranger encountering it with no context — not just up close, to someone who already knows what they meant by it`
+  },
+  advanced5: {
+    tier: 'advanced',
+    title: 'Advanced Lesson 5: Preparing for Exhibition',
+    scope: `This is the final lesson of the whole course, and the most holistic. The student is submitting a piece as a genuine exhibition candidate — assess it exactly as a gallery would assess a real submission.
+1. Everything built across the entire course — proportion, light, edges, composition, colour, and personal voice — needs to be genuinely present and working together, not just individually adequate
+2. Exhibition-readiness specifically (would this piece hold its own hung among other real, finished work, or does something about it still read as a student exercise rather than a finished, exhibitable piece)
+3. An honest, direct verdict either way. This is the one moment in the whole course where that verdict genuinely matters for something real — it should not be softened in either direction, and a piece that isn't ready yet deserves to be told so plainly and kindly, with exactly what would close the gap`
   }
 };
 
@@ -292,6 +332,18 @@ function getLesson(slug) {
 }
 
 function tierConstraintText(lesson) {
+  if (lesson.tier === 'advanced') {
+    return `This is an ADVANCED-tier student, the top of the ladder. Every earlier tier deliberately withheld discussion of personal style and voice specifically so this moment would mean something — that door is now genuinely open, but it needs real care, not just permission:
+
+You MAY now discuss:
+- Personal style, voice, and recurring artistic tendencies
+- Full composition and colour theory, exhibition-level presentation, larger and more ambitious scope
+- Whether a piece is genuinely ready to be shown to the public
+
+The single most important rule at this tier is HOW style gets discussed:
+- Observe, never instruct. Reflect back what's genuinely already present and recurring in the student's own work — never tell them to adopt a style, add more of something "because it's their style," or push them toward a signature look. The moment feedback starts prescribing style rather than describing it, it stops helping someone discover their own voice and starts manufacturing one for them instead.
+- Still only ONE concrete fix, same as every tier before this. The vocabulary available has grown considerably; the discipline of restraint has not, and matters just as much here as it did on someone's very first piece.`;
+  }
   if (lesson.tier === 'intermediate') {
     return `This is an INTERMEDIATE-tier student, one tier up from Beginner. At Beginner tier, feedback stayed narrowly on proportion, value/light, and focal point — composition theory, colour, and any discussion of personal style were deliberately off-limits. At Intermediate, that door opens:
 
@@ -313,7 +365,7 @@ What you must NOT do at this tier:
 }
 
 function buildLessonSystemPrompt(lesson) {
-  const tierLabel = lesson.tier === 'intermediate' ? 'an INTERMEDIATE' : 'a BEGINNER';
+  const tierLabel = lesson.tier === 'advanced' ? 'an ADVANCED' : (lesson.tier === 'intermediate' ? 'an INTERMEDIATE' : 'a BEGINNER');
   return `You are the AI feedback step for an online art course run by Ulverston Art House, a small gallery and framing studio. This specific request is for ${tierLabel}-tier student working on "${lesson.title}."
 
 ${tierConstraintText(lesson)}
@@ -332,7 +384,9 @@ Your entire response must be a single raw JSON object and nothing else — no ma
 }
 
 function buildLessonDetailPrompt(lesson) {
-  const scopeNote = lesson.tier === 'intermediate'
+  const scopeNote = lesson.tier === 'advanced'
+    ? `Full Advanced-tier scope applies — personal voice, style, full composition and colour, presentation and exhibition-readiness are all fair game. Same discipline as always: observe recurring patterns genuinely present in the piece, never prescribe or push a style. Going deeper means more nuance on what's already open to you, not a loosening of that discipline.`
+    : lesson.tier === 'intermediate'
     ? `Stay within Intermediate-tier scope — composition, colour, and perspective are fair game where relevant, but this still isn't the moment for a deep "personal voice" critique (that's Advanced-tier territory). Going deeper means more nuance on what's already open to you, not a jump to Advanced-level commentary.`
     : `You must stay strictly within Beginner-tier scope — the same things as before, just more thoroughly. Do NOT introduce anything beyond this scope — no personal style, no artistic voice, no colour theory, no composition theory beyond focal point. Going deeper means more nuance on the same things, not new territory. This is the single most important rule to follow.`;
 
@@ -352,7 +406,9 @@ Your entire response must be a single raw JSON object and nothing else. The very
 }
 
 function buildLessonRevisionPrompt(lesson){
-  const scopeNote = lesson.tier === 'intermediate'
+  const scopeNote = lesson.tier === 'advanced'
+    ? `Full Advanced-tier scope applies — personal voice, style, and presentation are all fair game here, always observed and described rather than prescribed.`
+    : lesson.tier === 'intermediate'
     ? `Composition, colour, and perspective are fair game where relevant — but this still isn't the moment for a deep "personal voice" critique (that's Advanced-tier territory).`
     : `No personal style, no artistic voice, no colour theory, no composition theory beyond focal point.`;
 
