@@ -176,6 +176,14 @@ const card = document.getElementById('card');
       <a href="intermediate5.html" class="lesson-link">Lesson 5: Negative Space and Framing</a>
       <a href="intermediate6.html" class="lesson-link">Lesson 6: Short Themed Series</a>
     </div>
+    <div class="field" style="margin-top:20px;">
+      <div class="course-tier-label">Your course — Advanced</div>
+      <a href="advanced1.html" class="lesson-link">Lesson 1: Refining a Personal Voice</a>
+      <a href="advanced2.html" class="lesson-link">Lesson 2: Larger, Ambitious Pieces</a>
+      <a href="advanced3.html" class="lesson-link">Lesson 3: Critique-Driven Iteration</a>
+      <a href="advanced4.html" class="lesson-link">Lesson 4: Presenting &amp; Framing</a>
+      <a href="advanced5.html" class="lesson-link">Lesson 5: Preparing for Exhibition</a>
+    </div>
     <div class="field" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
       <button id="pauseBtn" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:100%;">Pause my membership</button>
       <div id="pauseConfirm" style="display:none;margin-top:10px;padding:12px;background:var(--parchment);border-radius:2px;">
@@ -202,6 +210,7 @@ const card = document.getElementById('card');
     <div class="field">
       <div class="field-label">Membership</div>
       <span class="status-badge ${isActive ? 'active' : ''}">${data.subscriptionStatus || 'inactive'}</span>
+      ${data.isAdmin ? '<span class="status-badge" style="background:var(--clay);color:#fff;margin-left:6px;">Admin access</span>' : ''}
     </div>
     ${memberAreaHtml}
     ${pausedHtml}
