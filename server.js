@@ -9,7 +9,7 @@ const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY;
 const STRIPE_PRICE_ANNUAL = process.env.STRIPE_PRICE_ANNUAL;
 
 // ============ FOUNDER MEMBER OFFER ============
-// 33% off — roughly £15 to £10/month, or £150 to £100 for a first year —
+// Percentage lives entirely in the Stripe coupon itself, not hardcoded here —
 // genuinely capped at the first 25 people, checked live against the real database every time.
 const FOUNDER_COUPON_ID = process.env.STRIPE_FOUNDER_COUPON_ID;
 const FOUNDER_SLOTS_CAP = 25;
@@ -52,7 +52,18 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
     if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object;
-      const status = subscription.status === 'active' ? 'active' : 'inactive';
+      let status;
+      if (subscription.status !== 'active') {
+        status = 'inactive';
+      } else if (subscription.pause_collection) {
+        // Pausing via pause_collection deliberately keeps Stripe's own status as "active" —
+        // the subscription itself isn't cancelled, just billing. Without this check, this
+        // same webhook (which our own pause/resume calls trigger) would silently overwrite
+        // a genuine pause back to "active" moments after it was set.
+        status = 'paused';
+      } else {
+        status = 'active';
+      }
       const rawPeriodEnd = subscription.items.data[0]?.current_period_end;
       const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
 
