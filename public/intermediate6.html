@@ -388,8 +388,20 @@
     const response = await fetch('/api/auth/me');
     const data = await response.json();
     if (data.loggedIn && data.subscriptionStatus === 'active') {
-      wrap.style.display = 'block';
-      gateMessage.style.display = 'none';
+      // Logged in and paying isn't enough on its own — this lesson also has to have been earned.
+      // Checked here directly, not just hidden on account.html, so typing this URL can't skip ahead.
+      const progressResponse = await fetch('/api/lessons/progress');
+      const progressData = await progressResponse.json();
+      const passed = new Set(progressData.passed || []);
+      if (passed.has('intermediate5')) {
+        wrap.style.display = 'block';
+        gateMessage.style.display = 'none';
+      } else {
+        gateMessage.innerHTML = `
+          <h1 style="font-family:'Fraunces',serif;font-weight:500;font-size:26px;margin:0 0 12px 0;">Not quite yet</h1>
+          <p style="font-size:15px;color:var(--ink-soft);line-height:1.55;">This lesson builds on the one before it — please complete <a href="intermediate5.html">Intermediate Lesson 5: Negative Space and Framing</a> first.</p>
+        `;
+      }
     } else {
       gateMessage.innerHTML = `
         <h1 style="font-family:'Fraunces',serif;font-weight:500;font-size:26px;margin:0 0 12px 0;">This lesson is part of UAH Academy</h1>
@@ -703,7 +715,18 @@ function renderRevisionFeedback(fb, round){
   wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-passBtn.addEventListener('click', () => {
+passBtn.addEventListener('click', async () => {
+  // Record this genuinely, not just in this page's own memory — this is what
+  // account.html and every later lesson's own access check actually rely on.
+  try {
+    await fetch('/api/lessons/mark-passed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lesson: 'intermediate6' })
+    });
+  } catch (e) {
+    console.error('Could not save lesson progress:', e);
+  }
   milestoneRow.style.display = 'none';
   passedBox.style.display = 'block';
   passedBox.innerHTML = `

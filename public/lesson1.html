@@ -703,7 +703,18 @@ function renderRevisionFeedback(fb, round){
   wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-passBtn.addEventListener('click', () => {
+passBtn.addEventListener('click', async () => {
+  // Record this genuinely, not just in this page's own memory — this is what
+  // account.html and every later lesson's own access check actually rely on.
+  try {
+    await fetch('/api/lessons/mark-passed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lesson: 'lesson1' })
+    });
+  } catch (e) {
+    console.error('Could not save lesson progress:', e);
+  }
   milestoneRow.style.display = 'none';
   passedBox.style.display = 'block';
   passedBox.innerHTML = `
