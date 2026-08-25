@@ -1058,6 +1058,36 @@ app.post('/api/resume-membership', async (req, res) => {
   }
 });
 
+// One-time admin bootstrap. This never becomes a standing back door: it checks whether
+// an admin already exists on every call, and refuses outright once one does — so it's
+// safe to leave deployed rather than needing to be found and removed later.
+app.post('/api/admin/bootstrap', async (req, res) => {
+  try {
+    const { secret, email } = req.body;
+    if (!process.env.ADMIN_BOOTSTRAP_SECRET) {
+      return res.status(500).json({ error: 'Server has no ADMIN_BOOTSTRAP_SECRET set — add one in Render\'s Environment settings first.' });
+    }
+    if (!secret || secret !== process.env.ADMIN_BOOTSTRAP_SECRET) {
+      return res.status(403).json({ error: 'That secret doesn\'t match what\'s set on the server.' });
+    }
+    const existingAdmin = await pool.query('SELECT id FROM users WHERE is_admin = TRUE LIMIT 1');
+    if (existingAdmin.rows.length > 0) {
+      return res.status(403).json({ error: 'An admin account already exists — this can only be used once, and it already has been.' });
+    }
+    if (!email) {
+      return res.status(400).json({ error: 'Enter the email you log into the Academy with.' });
+    }
+    const result = await pool.query('UPDATE users SET is_admin = TRUE WHERE email = $1 RETURNING email', [email]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No account found with that email. Log in at login.html at least once first, then try again.' });
+    }
+    res.json({ success: true, email: result.rows[0].email });
+  } catch (err) {
+    console.error('admin bootstrap error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
     const user = await getSessionUser(req);
