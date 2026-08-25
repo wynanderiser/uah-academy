@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAH Academy — Admin Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#EDE6D6;
+    --paper:#FBF8F2;
+    --ink:#2B2621;
+    --ink-soft:#5C544A;
+    --moss:#5C6B4F;
+    --moss-dark:#46543C;
+    --clay:#A15C3E;
+    --line:#D9CFBC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--parchment);
+    color:var(--ink);
+    font-family:'Work Sans',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:56px 20px;
+  }
+  .card{
+    width:100%;
+    max-width:420px;
+    background:var(--paper);
+    border-radius:2px;
+    padding:36px 32px;
+    box-shadow:0 1px 2px rgba(43,38,33,0.06), 0 8px 24px rgba(43,38,33,0.06);
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--moss-dark);
+    margin-bottom:14px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:24px;
+    margin:0 0 12px 0;
+  }
+  p.lede{font-size:14.5px;color:var(--ink-soft);line-height:1.55;margin:0 0 24px 0;}
+  label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em;}
+  input{
+    width:100%;
+    font-family:'Work Sans',sans-serif;
+    font-size:15px;
+    padding:11px 12px;
+    border:1px solid var(--line);
+    border-radius:2px;
+    background:var(--parchment);
+    margin-bottom:16px;
+  }
+  input:focus{outline:none;border-color:var(--moss);}
+  button{
+    width:100%;
+    font-family:'Work Sans',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    background:var(--moss);
+    color:#fff;
+    border:none;
+    padding:12px;
+    border-radius:2px;
+    cursor:pointer;
+  }
+  button:hover{background:var(--moss-dark);}
+  button:disabled{background:#B9C2AE;cursor:not-allowed;}
+  .result{
+    margin-top:18px;
+    padding:14px 16px;
+    border-radius:2px;
+    font-size:13.5px;
+    line-height:1.5;
+    display:none;
+  }
+  .result.success{background:#E6EDE0;border-left:3px solid var(--moss);display:block;}
+  .result.error{background:#F6E9E4;border-left:3px solid var(--clay);display:block;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="eyebrow">UAH Academy · One-time setup</div>
+  <h1>Make this account admin</h1>
+  <p class="lede">This works exactly once — the moment an admin account exists, this page stops working for good, so there's no ongoing risk in leaving it here. Log in at <a href="login.html">login.html</a> first if you haven't already, so your account exists to promote.</p>
+
+  <label for="email">Your email (the one you log in with)</label>
+  <input type="email" id="email" placeholder="you@example.com">
+
+  <label for="secret">Admin secret</label>
+  <input type="password" id="secret" placeholder="Whatever you set as ADMIN_BOOTSTRAP_SECRET">
+
+  <button id="submitBtn">Make this account admin</button>
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  const email = document.getElementById('email').value.trim();
+  const secret = document.getElementById('secret').value;
+  const resultEl = document.getElementById('result');
+  const btn = document.getElementById('submitBtn');
+
+  if (!email || !secret) {
+    resultEl.className = 'result error';
+    resultEl.textContent = 'Fill in both fields first.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+
+  try {
+    const response = await fetch('/api/admin/bootstrap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, secret })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Something went wrong.');
+
+    resultEl.className = 'result success';
+    resultEl.textContent = `Done — ${data.email} is now an admin account. Log out and back in at login.html to see it take effect, then head to account.html.`;
+  } catch (err) {
+    resultEl.className = 'result error';
+    resultEl.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = 'Make this account admin';
+  }
+});
+</script>
+</body>
+</html>
