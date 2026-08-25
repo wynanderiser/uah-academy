@@ -1,0 +1,24 @@
+User-agent: *
+Allow: /uah-side-shoots-gallery.html
+Disallow: /lesson1.html
+Disallow: /lesson2.html
+Disallow: /lesson3.html
+Disallow: /lesson4.html
+Disallow: /lesson5.html
+Disallow: /lesson6.html
+Disallow: /intermediate1.html
+Disallow: /intermediate2.html
+Disallow: /intermediate3.html
+Disallow: /intermediate4.html
+Disallow: /intermediate5.html
+Disallow: /intermediate6.html
+Disallow: /advanced1.html
+Disallow: /advanced2.html
+Disallow: /advanced3.html
+Disallow: /advanced4.html
+Disallow: /advanced5.html
+Disallow: /side-shoot-submission.html
+Disallow: /account.html
+Disallow: /login.html
+
+Sitemap: https://academy.ulverstonarthouse.co.uk/sitemap.xml
