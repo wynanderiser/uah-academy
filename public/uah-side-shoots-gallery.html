@@ -593,11 +593,29 @@ function lockOtherPieces(pickedSlug){
   });
 }
 
-// on load: if a commitment was already made (by submitting real work on a submission page), reflect it here
-const alreadyPicked = localStorage.getItem(LOCK_KEY);
-if (alreadyPicked) {
-  lockOtherPieces(alreadyPicked);
-}
+// on load: paying members and admins always see the full, growing menu — the free-trial
+// lock only applies to someone who hasn't enrolled yet. Checked against the real server
+// status, not just assumed from being logged in, so a paused or inactive account still
+// gets the free-trial behaviour rather than a false unlock.
+(async function applyFreeTrialLock(){
+  try {
+    const response = await fetch('/api/auth/me');
+    const data = await response.json();
+    if (data.loggedIn && (data.subscriptionStatus === 'active' || data.isAdmin)) {
+      // Enrolled (or admin) — the free-trial lock doesn't apply here at all. Clear any
+      // stale flag left over from before they enrolled, so it can't resurface later.
+      localStorage.removeItem(LOCK_KEY);
+      return;
+    }
+  } catch (e) {
+    console.error('Could not check membership status, falling back to local lock state:', e);
+    // fall through to the existing behaviour below if the check itself fails
+  }
+  const alreadyPicked = localStorage.getItem(LOCK_KEY);
+  if (alreadyPicked) {
+    lockOtherPieces(alreadyPicked);
+  }
+})();
 // note: clicking a piece here only browses to it — the actual commitment happens on the
 // submission page itself, the moment someone submits real work and gets real feedback back.
 </script>
