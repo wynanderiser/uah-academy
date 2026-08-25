@@ -393,7 +393,7 @@
       const progressResponse = await fetch('/api/lessons/progress');
       const progressData = await progressResponse.json();
       const passed = new Set(progressData.passed || []);
-      if (passed.has('intermediate6')) {
+      if (data.isAdmin || passed.has('intermediate6')) {
         wrap.style.display = 'block';
         gateMessage.style.display = 'none';
       } else {
