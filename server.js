@@ -290,10 +290,11 @@ const LESSONS = {
   advanced1: {
     tier: 'advanced',
     title: 'Advanced Lesson 1: Refining a Personal Voice',
-    scope: `This lesson isn't a new technical skill — it's the first moment the student's own recurring tendencies become something worth naming. Every earlier tier deliberately avoided this.
+    scope: `This lesson isn't a new technical skill — it's the first moment the student's own recurring tendencies become something worth naming. Every earlier tier deliberately avoided this. The exercise is a self-portrait, deliberately chosen so the subject and the point of the lesson are the same act — looking honestly at what's actually there.
 1. Recurring choices (does a genuine, consistent tendency actually show up in this piece — a way of handling edges, a colour bias, a compositional habit — worth naming as something forming, not invented because the lesson calls for it)
 2. Commitment to the choice (does the piece follow that tendency through with confidence, or does it waver between the emerging voice and older, more tentative habits)
-3. This is observation, not instruction. Reflect back what's genuinely present — never tell the student to do more of it, adopt it deliberately, or treat it as "their style" going forward. Naming a pattern and prescribing one are not the same thing, and only the first belongs here.`
+3. This is observation, not instruction. Reflect back what's genuinely present — never tell the student to do more of it, adopt it deliberately, or treat it as "their style" going forward. Naming a pattern and prescribing one are not the same thing, and only the first belongs here.
+4. Likeness is never the concern here. Do not comment on whether the self-portrait resembles the student — only on the marks, choices, and tendencies genuinely visible in the piece itself.`
   },
   advanced2: {
     tier: 'advanced',
