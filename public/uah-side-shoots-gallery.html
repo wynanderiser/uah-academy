@@ -146,12 +146,14 @@
   .carousel-page{
     width:33.333%;
     flex-shrink:0;
+    padding-bottom:80px;
+    box-sizing:border-box;
   }
   .carousel-nav{
     display:flex;
     justify-content:center;
     gap:10px;
-    margin-top:48px;
+    margin-top:24px;
   }
   .carousel-dot{
     font-family:'IBM Plex Mono',monospace;
@@ -441,6 +443,7 @@
     .wall-row.row-2{margin-top:56px;}
     .reveal{width:200px;}
     .carousel-nav{margin-top:22px;}
+    .carousel-page{padding-bottom:24px;}
   }
   @media (prefers-reduced-motion: reduce){
     .frame, .reveal{transition:none;}
