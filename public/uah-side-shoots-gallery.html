@@ -132,6 +132,44 @@
   .divider .diamond{width:6px;height:6px;background:var(--brass);transform:rotate(45deg);}
 
   /* --- the gallery wall --- */
+  .carousel-viewport{
+    overflow:hidden;
+    position:relative;
+  }
+  .carousel-track{
+    display:flex;
+    width:300%;
+    transform:translateX(-33.333%);
+    transition:transform .4s ease;
+    touch-action:pan-y;
+  }
+  .carousel-page{
+    width:33.333%;
+    flex-shrink:0;
+  }
+  .carousel-nav{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-top:22px;
+  }
+  .carousel-dot{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    background:transparent;
+    border:1px solid var(--line, #D9CFBC);
+    color:var(--ink-soft, #5C544A);
+    padding:7px 14px;
+    border-radius:14px;
+    cursor:pointer;
+  }
+  .carousel-dot.active{
+    background:var(--ink);
+    color:var(--brass-light, #E8D9A8);
+    border-color:var(--ink);
+  }
   .wall{
     position:relative;
     padding:20px 10px 10px;
@@ -154,6 +192,16 @@
   .piece.p4{ transform: translateY(10px) rotate(1deg); }
   .piece.p5{ transform: translateY(-2px) rotate(-0.7deg); }
 
+  .frame-oak{
+    background:
+      repeating-linear-gradient(90deg, rgba(90,62,34,0.16) 0px, rgba(90,62,34,0.16) 2px, transparent 2px, transparent 7px),
+      linear-gradient(155deg, #C89B5C, #A97C3E 35%, #7A5A2C 68%, #C89B5C);
+  }
+  .frame-portobello{
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.14) 0px, rgba(0,0,0,0.14) 3px, transparent 3px, transparent 10px),
+      linear-gradient(155deg, #4A3C30, #2E241C 40%, #1C140E 70%, #4A3C30);
+  }
   .frame{
     width:210px;
     height:262px;
@@ -421,7 +469,50 @@
 
   <p class="shoots-caption">Side-shoots are theme-based modules where you'll be guided to create a piece of art to proudly hang on your wall.</p>
 
+  <div class="carousel-viewport">
+  <div class="carousel-track" id="carouselTrack">
+    <div class="carousel-page" data-group="texture">
   <div class="wall">
+  <div class="wall-row row-1">
+
+    <a class="piece p1" data-theme="driftwood" tabindex="0" href="side-shoot-submission.html?theme=driftwood" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-oak"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g683064' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23D8C2A0'/><stop offset='100%' stop-color='%238A6A48'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g683064)'/><path d='M20 100 Q100 90 180 105' stroke='%235C4530' stroke-width='3' fill='none'/><path d='M20 140 Q100 130 180 145' stroke='%235C4530' stroke-width='3' fill='none'/><path d='M20 180 Q100 170 180 185' stroke='%235C4530' stroke-width='2' fill='none'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">Sea-Worn Driftwood</div>
+      <div class="reveal">Every groove tells you which way the grain wants to go.</div>
+    </a>
+
+    <a class="piece p2" data-theme="feather" tabindex="0" href="side-shoot-submission.html?theme=feather" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-oak"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g229579' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23EDE7D9'/><stop offset='100%' stop-color='%23BFB89E'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g229579)'/><line x1='100' y1='30' x2='100' y2='220' stroke='%236B644E' stroke-width='2'/><line x1='100' y1='50' x2='60' y2='68' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='50' x2='140' y2='68' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='80' x2='55' y2='98' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='80' x2='145' y2='98' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='110' x2='50' y2='128' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='110' x2='150' y2='128' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='140' x2='55' y2='158' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='140' x2='145' y2='158' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='170' x2='65' y2='188' stroke='%236B644E' stroke-width='1.5'/><line x1='100' y1='170' x2='135' y2='188' stroke='%236B644E' stroke-width='1.5'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">A Single Feather</div>
+      <div class="reveal">Fine, repeating strokes — patience rewarded up close.</div>
+    </a>
+
+    <a class="piece p3" data-theme="frost" tabindex="0" href="side-shoot-submission.html?theme=frost" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-oak"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g781199' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23E4EEF2'/><stop offset='100%' stop-color='%23A9C2CE'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g781199)'/><line x1='100' y1='125' x2='170.0' y2='125.0' stroke='%23FFFFFF' stroke-width='2'/><line x1='100' y1='125' x2='134.8299733524209' y2='185.7196257915812' stroke='%23FFFFFF' stroke-width='2'/><line x1='100' y1='125' x2='65.26677611058008' y2='185.77502084119288' stroke='%23FFFFFF' stroke-width='2'/><line x1='100' y1='125' x2='30.00008877907223' y2='125.11148570415408' stroke='%23FFFFFF' stroke-width='2'/><line x1='100' y1='125' x2='65.07336553237018' y2='64.3359232760889' stroke='%23FFFFFF' stroke-width='2'/><line x1='100' y1='125' x2='135.242946998148' y2='64.5191378460448' stroke='%23FFFFFF' stroke-width='2'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">Frost on Glass</div>
+      <div class="reveal">Delicate, branching lines — a study in restraint.</div>
+    </a>
+
+  </div>
+  <div class="wall-row row-2">
+
+    <a class="piece p4" data-theme="shell" tabindex="0" href="side-shoot-submission.html?theme=shell" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-oak"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g715790' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23EDD9C7'/><stop offset='100%' stop-color='%23C99B7A'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g715790)'/><path d='M100 125 m0,0 a10,10 0 1,1 20,5 a20,20 0 1,1 -35,10 a32,32 0 1,1 55,15' stroke='%238A5C3C' stroke-width='2.5' fill='none'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">A Weathered Shell</div>
+      <div class="reveal">Spiral form and quiet colour, built one ridge at a time.</div>
+    </a>
+
+    <a class="piece p5" data-theme="bark" tabindex="0" href="side-shoot-submission.html?theme=bark" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-oak"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g403810' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%236B5138'/><stop offset='100%' stop-color='%233A2A1C'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g403810)'/><path d='M40 20 L46 230' stroke='%232A1E12' stroke-width='3'/><path d='M75 20 L81 230' stroke='%232A1E12' stroke-width='3'/><path d='M110 20 L116 230' stroke='%232A1E12' stroke-width='3'/><path d='M145 20 L151 230' stroke='%232A1E12' stroke-width='3'/><path d='M175 20 L181 230' stroke='%232A1E12' stroke-width='3'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">Old Bark</div>
+      <div class="reveal">Rough, honest texture — every mark earns its place.</div>
+    </a>
+
+  </div>
+  </div>
+    </div>
+    <div class="carousel-page" data-group="general">
+<div class="wall">
   <div class="wall-row row-1">
 
     <a class="piece p1" data-theme="moon" tabindex="0" href="side-shoot-submission.html?theme=moon" style="text-decoration:none;color:inherit;display:block;">
@@ -460,6 +551,54 @@
     </a>
 
   </div>
+  </div>
+    </div>
+    <div class="carousel-page" data-group="memory">
+  <div class="wall">
+  <div class="wall-row row-1">
+
+    <a class="piece p1" data-theme="loved-object" tabindex="0" href="side-shoot-submission.html?theme=loved-object" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-portobello"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g301115' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23EACB9C'/><stop offset='100%' stop-color='%23B8894F'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g301115)'/><path d='M100 165 C60 130 55 95 85 90 C100 88 100 105 100 105 C100 105 100 88 115 90 C145 95 140 130 100 165 Z' stroke='%237A5228' stroke-width='2.5' fill='none'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">Something You Keep</div>
+      <div class="reveal">Not what it looks like to others — what it means to you.</div>
+    </a>
+
+    <a class="piece p2" data-theme="old-photograph" tabindex="0" href="side-shoot-submission.html?theme=old-photograph" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-portobello"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g651922' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23E2D0AC'/><stop offset='100%' stop-color='%23A68A5E'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g651922)'/><rect x='45' y='55' width='110' height='140' fill='none' stroke='%235C4A30' stroke-width='3'/><rect x='58' y='68' width='84' height='95' fill='none' stroke='%235C4A30' stroke-width='1.5'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">An Old Photograph</div>
+      <div class="reveal">Draw the photo, not just the memory inside it.</div>
+    </a>
+
+    <a class="piece p3" data-theme="familiar-doorway" tabindex="0" href="side-shoot-submission.html?theme=familiar-doorway" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-portobello"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g879222' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23C7BCA0'/><stop offset='100%' stop-color='%237D6C52'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g879222)'/><path d='M65 220 L65 100 A35 35 0 0 1 135 100 L135 220' stroke='%234A3F2E' stroke-width='3' fill='none'/><line x1='55' y1='220' x2='145' y2='220' stroke='%234A3F2E' stroke-width='3'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">The Door You Know</div>
+      <div class="reveal">The one you've walked through a thousand times, really looked at once.</div>
+    </a>
+
+  </div>
+  <div class="wall-row row-2">
+
+    <a class="piece p4" data-theme="worn-shoes" tabindex="0" href="side-shoot-submission.html?theme=worn-shoes" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-portobello"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g840722' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23C99B6E'/><stop offset='100%' stop-color='%236E4C2E'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g840722)'/><path d='M40 190 L40 150 Q60 130 90 135 L150 150 Q165 155 165 170 L165 190 Z' stroke='%233E2A18' stroke-width='2.5' fill='none'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">Well-Worn Shoes</div>
+      <div class="reveal">Every scuff is a small piece of honest history.</div>
+    </a>
+
+    <a class="piece p5" data-theme="everyday-cup" tabindex="0" href="side-shoot-submission.html?theme=everyday-cup" style="text-decoration:none;color:inherit;display:block;">
+      <div class="frame frame-portobello"><div class="mat"><div class="canvas"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 250'><defs><linearGradient id='g581684' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='%23D98F5E'/><stop offset='100%' stop-color='%238A4E28'/></linearGradient></defs><rect width='200' height='250' fill='url(%23g581684)'/><rect x='65' y='95' width='75' height='85' rx='4' fill='none' stroke='%235C321A' stroke-width='3'/><path d='M140 110 q28 0 28 30 q0 30 -28 30' fill='none' stroke='%235C321A' stroke-width='3'/></svg>" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div>
+      <div class="plaque">The Cup You Always Reach For</div>
+      <div class="reveal">Chips and all — that's exactly the point.</div>
+    </a>
+
+  </div>
+  </div>
+    </div>
+  </div>
+  </div>
+  <div class="carousel-nav">
+    <button class="carousel-dot" data-index="0">Texture</button>
+    <button class="carousel-dot active" data-index="1">General</button>
+    <button class="carousel-dot" data-index="2">Memory Lane</button>
   </div>
 
   <div class="section-divider"><span class="line"></span><span class="diamond"></span><span class="line"></span></div>
@@ -592,6 +731,38 @@ function lockOtherPieces(pickedSlug){
     }
   });
 }
+
+// three-group swipeable carousel: 0 = Texture, 1 = General (default centre), 2 = Memory Lane
+(function initCarousel(){
+  const track = document.getElementById('carouselTrack');
+  const dots = document.querySelectorAll('.carousel-dot');
+  let current = 1;
+
+  function goTo(index){
+    current = Math.max(0, Math.min(2, index));
+    track.style.transform = `translateX(-${current * 33.333}%)`;
+    dots.forEach((dot, i) => dot.classList.toggle('active', i === current));
+  }
+
+  dots.forEach((dot, i) => dot.addEventListener('click', () => goTo(i)));
+
+  let startX = 0;
+  let isDragging = false;
+  track.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    isDragging = true;
+  }, { passive: true });
+  track.addEventListener('touchend', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    const deltaX = e.changedTouches[0].clientX - startX;
+    if (Math.abs(deltaX) < 40) return; // too small a swipe to count
+    if (deltaX < 0) goTo(current + 1); // swiped left -> next group
+    else goTo(current - 1); // swiped right -> previous group
+  }, { passive: true });
+
+  goTo(1); // always open on General
+})();
 
 // on load: paying members and admins always see the full, growing menu — the free-trial
 // lock only applies to someone who hasn't enrolled yet. Checked against the real server
