@@ -61,6 +61,11 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         // same webhook (which our own pause/resume calls trigger) would silently overwrite
         // a genuine pause back to "active" moments after it was set.
         status = 'paused';
+      } else if (subscription.cancel_at_period_end) {
+        // Same reasoning as the pause check above: scheduling a cancellation doesn't change
+        // Stripe's own "active" status until the period actually ends, so this needs its own
+        // check too, or this webhook would immediately overwrite a genuine cancellation.
+        status = 'cancelling';
       } else {
         status = 'active';
       }
@@ -839,15 +844,20 @@ app.get('/api/auth/me', async (req, res) => {
   try {
     const user = await getSessionUser(req);
     if (!user) return res.json({ loggedIn: false });
+    // A cancelling membership has still paid for its current period, so it should keep every
+    // lesson gate unlocked exactly like a fully active one until that period actually ends —
+    // every existing gate just checks subscriptionStatus === 'active', so this one line handles
+    // it without touching any lesson page. The real state is exposed separately below for
+    // account.html to show the honest "ending on [date]" picture.
+    const isCancelling = user.subscription_status === 'cancelling';
     res.json({
       loggedIn: true,
       email: user.email,
-      // Admins see every gate as unlocked without needing a real subscription — every existing
-      // access check across lesson pages just tests subscriptionStatus === 'active', so this one
-      // change is enough; nothing on the lesson pages themselves needs editing.
-      subscriptionStatus: user.is_admin ? 'active' : user.subscription_status,
+      subscriptionStatus: user.is_admin ? 'active' : (isCancelling ? 'active' : user.subscription_status),
       subscriptionPlan: user.is_admin ? 'admin' : user.subscription_plan,
-      isAdmin: !!user.is_admin
+      isAdmin: !!user.is_admin,
+      cancelling: isCancelling,
+      currentPeriodEnd: user.current_period_end
     });
   } catch (err) {
     console.error('me error:', err);
@@ -1054,6 +1064,54 @@ app.post('/api/resume-membership', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('resume-membership error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Genuinely different from pause: this ends the membership for good, but fairly — access
+// and lessons stay available until the period already paid for actually runs out, rather
+// than cutting someone off the moment they cancel.
+app.post('/api/cancel-membership', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+    if (user.subscription_status !== 'active') return res.status(400).json({ error: 'Your membership is not currently active.' });
+    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No subscription found on your account.' });
+
+    const subs = await stripeClient.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
+    if (!subs.data.length) return res.status(400).json({ error: 'Could not find an active subscription to cancel.' });
+
+    await stripeClient.subscriptions.update(subs.data[0].id, {
+      cancel_at_period_end: true
+    });
+
+    await pool.query(`UPDATE users SET subscription_status = 'cancelling' WHERE id = $1`, [user.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('cancel-membership error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Lets someone change their mind any time before the period actually ends.
+app.post('/api/undo-cancel-membership', async (req, res) => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in first.' });
+    if (user.subscription_status !== 'cancelling') return res.status(400).json({ error: 'Your membership is not currently set to cancel.' });
+    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No subscription found on your account.' });
+
+    const subs = await stripeClient.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
+    if (!subs.data.length) return res.status(400).json({ error: 'Could not find your subscription.' });
+
+    await stripeClient.subscriptions.update(subs.data[0].id, {
+      cancel_at_period_end: false
+    });
+
+    await pool.query(`UPDATE users SET subscription_status = 'active' WHERE id = $1`, [user.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('undo-cancel-membership error:', err);
     res.status(500).json({ error: err.message });
   }
 });
