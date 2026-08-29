@@ -1061,6 +1061,75 @@ app.post('/api/resume-membership', async (req, res) => {
 // One-time admin bootstrap. This never becomes a standing back door: it checks whether
 // an admin already exists on every call, and refuses outright once one does — so it's
 // safe to leave deployed rather than needing to be found and removed later.
+// Facts the FAQ assistant is allowed to state as true. Kept separate from the system
+// prompt itself so future pages (the Wynander exhibition site, say) can reuse the same
+// assistant with their own facts injected, rather than needing a rebuild.
+const ACADEMY_FACTS = `
+- UAH Academy is an online art course run by Ulverston Art House, a real gallery and framing studio in Ulverston, Cumbria.
+- It's built for complete beginners — no experience needed. Lesson 1 is a simple exercise: draw one everyday object (an egg, apple, or mug) using light and shadow.
+- Feedback is genuinely AI-assisted, not fully automated — the AI gives detailed critique tuned specifically to each stage of the course, and the founder is personally involved at real milestones (not every single submission, but at the moments that matter).
+- The course runs Beginner through Intermediate through Advanced, six lessons per tier, self-paced — go as fast or slow as you like.
+- Pricing is £15/month, or £150/year (paying annually saves roughly two months). No hidden fees.
+- Membership can be paused, not just cancelled — billing stops immediately and progress is saved exactly where it was left, resumable any time.
+- There's a free way to try it first: "Side Shoots" — pick one themed piece (from groups called General, Texture, and Memory Lane) and get real AI feedback on it before enrolling, no payment required.
+- Finishing the Beginner tier earns a small, real framed print of the student's own work, made by UAH itself.
+- The course leads toward a planned exhibition series called "The Shape of Things to Come," where graduates get the chance to show and sell real work in a real venue as debut artists. The venue isn't finalised yet — UAH is in conversation with venues in Lancaster, Carlisle, and at Rheged.
+- Separately, UAH also runs a multi-vendor platform where people can sell their art more generally, described as "curate your own gallery."
+- The exact content of the Advanced tier is still being refined and isn't finalised yet.
+`.trim();
+
+const FAQ_SYSTEM_PROMPT = `You are answering questions on the UAH Academy website from people considering whether to enrol. Your tone matters as much as your accuracy — you should sound exactly like the same warm, plain-spoken, honest voice the course itself uses when giving feedback on someone's art: no corporate chatbot phrasing, no forced enthusiasm, no filler.
+
+Facts you can state as true:
+${ACADEMY_FACTS}
+
+Rules:
+- Never invent or guess at anything not in the facts above — no made-up dates, no invented policies, no guessed prices. If you don't know something, say so plainly and offer to have the founder follow up directly. This is not a failure — admitting you don't know something is exactly the same honesty the course itself is built on, and should be said with the same warmth, not as an apology.
+- If asked whether you're AI, say yes, plainly and without hedging. That's not something to talk around here — the whole point of this chat is to demonstrate what the AI feedback in the course is actually like: honest and genuinely useful, not evasive.
+- Keep answers short — a few sentences, not an essay. This is a conversation, not a brochure.
+- If someone seems ready to enrol or asks how to sign up, point them to the enrol/pricing section on the page rather than trying to close the sale yourself.
+- If a question is genuinely outside what you know (legal, highly specific personal circumstances, anything not covered above), say so honestly and suggest the founder can help directly — offer to take their email so the founder can follow up, but never fabricate a promise about response time.`;
+
+app.post('/api/faq-chat', async (req, res) => {
+  try {
+    const { messages } = req.body;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'No message history provided.' });
+    }
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'Server has no ANTHROPIC_API_KEY set.' });
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 400,
+        system: FAQ_SYSTEM_PROMPT,
+        messages: messages
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Anthropic API error (${response.status}): ${errText}`);
+    }
+    const data = await response.json();
+    const textBlock = data.content.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('No response text received.');
+
+    res.json({ reply: textBlock.text });
+  } catch (err) {
+    console.error('faq-chat error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/admin/bootstrap', async (req, res) => {
   try {
     const { secret, email } = req.body;
