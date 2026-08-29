@@ -185,12 +185,27 @@ const card = document.getElementById('card');
       <a href="advanced5.html" class="lesson-link">Lesson 5: Preparing for Exhibition</a>
     </div>
     <div class="field" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
-      <button id="pauseBtn" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:100%;">Pause my membership</button>
-      <div id="pauseConfirm" style="display:none;margin-top:10px;padding:12px;background:var(--parchment);border-radius:2px;">
+      ${data.cancelling ? '' : `
+      <button id="pauseBtn" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:100%;margin-bottom:8px;">Pause my membership</button>
+      <div id="pauseConfirm" style="display:none;margin-bottom:8px;padding:12px;background:var(--parchment);border-radius:2px;">
         <p style="font-size:13px;color:var(--ink);margin:0 0 10px 0;">Pausing stops billing immediately and holds your access until you resume — your progress stays exactly as it is. Are you sure?</p>
         <button id="pauseConfirmYes" style="background:var(--clay);color:#fff;border:none;width:48%;margin-right:4%;">Yes, pause it</button>
         <button id="pauseConfirmNo" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:48%;">Never mind</button>
       </div>
+      <button id="cancelBtn" style="background:transparent;color:var(--clay);border:1px solid var(--clay);width:100%;">Cancel my membership</button>
+      <div id="cancelConfirm" style="display:none;margin-top:8px;padding:12px;background:var(--parchment);border-radius:2px;">
+        <p style="font-size:13px;color:var(--ink);margin:0 0 10px 0;">This ends your membership for good — different from pausing. You'll keep full access until the end of your current billing period, and you won't be charged again after that. Are you sure?</p>
+        <button id="cancelConfirmYes" style="background:var(--clay);color:#fff;border:none;width:48%;margin-right:4%;">Yes, cancel it</button>
+        <button id="cancelConfirmNo" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:48%;">Never mind</button>
+      </div>
+      `}
+    </div>
+  ` : '';
+  const cancellingHtml = data.cancelling ? `
+    <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
+      <p style="font-size:14px;color:var(--ink);margin:0 0 14px 0;">Your membership is set to end${data.currentPeriodEnd ? ' on ' + new Date(data.currentPeriodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''} — you won't be charged again after that, and you'll keep full access right up until then. Changed your mind?</p>
+      <button id="keepMembershipBtn" style="background:var(--moss);color:#fff;border:none;width:100%;">Keep my membership</button>
+      <p id="keepMembershipStatus" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0 0;"></p>
     </div>
   ` : '';
   const pausedHtml = isPaused ? `
@@ -213,6 +228,7 @@ const card = document.getElementById('card');
       ${data.isAdmin ? '<span class="status-badge" style="background:var(--clay);color:#fff;margin-left:6px;">Admin access</span>' : ''}
     </div>
     ${memberAreaHtml}
+    ${cancellingHtml}
     ${pausedHtml}
     ${subscribeHtml}
     <button id="logoutBtn" style="margin-top:16px;">Log out</button>
@@ -278,6 +294,51 @@ const card = document.getElementById('card');
           statusEl.textContent = err.message;
           resumeBtn.disabled = false;
           resumeBtn.textContent = 'Resume my membership';
+        }
+      });
+    }
+
+    const cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        cancelBtn.style.display = 'none';
+        document.getElementById('cancelConfirm').style.display = 'block';
+      });
+      document.getElementById('cancelConfirmNo').addEventListener('click', () => {
+        document.getElementById('cancelConfirm').style.display = 'none';
+        cancelBtn.style.display = 'block';
+      });
+      document.getElementById('cancelConfirmYes').addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        e.target.textContent = 'Cancelling…';
+        try {
+          const response = await fetch('/api/cancel-membership', { method: 'POST' });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Something went wrong.');
+          window.location.reload();
+        } catch (err) {
+          alert(err.message);
+          e.target.disabled = false;
+          e.target.textContent = 'Yes, cancel it';
+        }
+      });
+    }
+
+    const keepMembershipBtn = document.getElementById('keepMembershipBtn');
+    if (keepMembershipBtn) {
+      keepMembershipBtn.addEventListener('click', async () => {
+        keepMembershipBtn.disabled = true;
+        keepMembershipBtn.textContent = 'Just a moment…';
+        const statusEl = document.getElementById('keepMembershipStatus');
+        try {
+          const response = await fetch('/api/undo-cancel-membership', { method: 'POST' });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Something went wrong.');
+          window.location.reload();
+        } catch (err) {
+          statusEl.textContent = err.message;
+          keepMembershipBtn.disabled = false;
+          keepMembershipBtn.textContent = 'Keep my membership';
         }
       });
     }
