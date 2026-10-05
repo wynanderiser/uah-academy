@@ -5,14 +5,22 @@ const { Pool } = require('pg');
 const stripeClient = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY;
-const STRIPE_PRICE_ANNUAL = process.env.STRIPE_PRICE_ANNUAL;
+// ============ WHAT CAN BE BOUGHT ============
+// Every price is a one-off payment, set here rather than in the Stripe dashboard, so a
+// price change is one edit in this file. Amounts are in pence. "credits" is how many tutor
+// conversations the purchase adds to the student's balance.
+const PRODUCTS = {
+  'tier:beginner':     { name: 'UAH Academy: Beginner tier',     amount: 6000, credits: 25, tier: 'beginner' },
+  'tier:intermediate': { name: 'UAH Academy: Intermediate tier', amount: 6000, credits: 25, tier: 'intermediate', requiresPassed: 'lesson6' },
+  'tier:advanced':     { name: 'UAH Academy: Advanced tier',     amount: 6000, credits: 25, tier: 'advanced', requiresPassed: 'intermediate6' },
+  'credits:5':         { name: '5 extra tutor conversations',    amount: 400,  credits: 5 }
+};
 
-// ============ FOUNDER MEMBER OFFER ============
-// Percentage lives entirely in the Stripe coupon itself, not hardcoded here —
-// genuinely capped at the first 25 people, checked live against the real database every time.
-const FOUNDER_COUPON_ID = process.env.STRIPE_FOUNDER_COUPON_ID;
-const FOUNDER_SLOTS_CAP = 25;
+// One "conversation" = one upload plus the back-and-forth that follows it. The first
+// upload uses one credit; follow-ups (more detail, a revised version) on the same lesson
+// within a day draw on that conversation's turns instead of using another credit.
+const CONVERSATION_FOLLOW_UPS = 9;
+const CONVERSATION_WINDOW_HOURS = 24;
 
 const app = express();
 app.set('trust proxy', 1); // so req.ip reflects the real visitor's address behind Render's proxy
@@ -32,59 +40,51 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const userId = session.client_reference_id;
-      const customerId = session.customer;
-      const subscriptionId = session.subscription;
-      const wasFounderOffer = session.metadata && session.metadata.founderOffer === 'true';
-
-      const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
-      const priceId = subscription.items.data[0].price.id;
-      const plan = priceId === STRIPE_PRICE_ANNUAL ? 'annual' : 'monthly';
-      const rawPeriodEnd = subscription.items.data[0]?.current_period_end;
-      const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
-
-      await pool.query(
-        `UPDATE users SET stripe_customer_id = $1, subscription_status = 'active', subscription_plan = $2, current_period_end = $3, signup_offer = COALESCE(signup_offer, $5) WHERE id = $4`,
-        [customerId, plan, currentPeriodEnd, userId, wasFounderOffer ? 'founder' : null]
-      );
-      console.log(`Subscription activated for user ${userId} (${plan})${wasFounderOffer ? ' — founder rate' : ''}`);
-    }
-
-    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-      const subscription = event.data.object;
-      let status;
-      if (subscription.status !== 'active') {
-        status = 'inactive';
-      } else if (subscription.pause_collection) {
-        // Pausing via pause_collection deliberately keeps Stripe's own status as "active" —
-        // the subscription itself isn't cancelled, just billing. Without this check, this
-        // same webhook (which our own pause/resume calls trigger) would silently overwrite
-        // a genuine pause back to "active" moments after it was set.
-        status = 'paused';
-      } else if (subscription.cancel_at_period_end) {
-        // Same reasoning as the pause check above: scheduling a cancellation doesn't change
-        // Stripe's own "active" status until the period actually ends, so this needs its own
-        // check too, or this webhook would immediately overwrite a genuine cancellation.
-        status = 'cancelling';
+      const productKey = session.metadata && session.metadata.productKey;
+      const product = PRODUCTS[productKey];
+      const userId = parseInt(session.client_reference_id, 10);
+      if (session.mode === 'payment' && session.payment_status === 'paid' && product && userId) {
+        await recordPurchase(userId, productKey, product, session);
       } else {
-        status = 'active';
+        console.warn('Ignoring checkout session that is not a recognised paid purchase:', session.id);
       }
-      const rawPeriodEnd = subscription.items.data[0]?.current_period_end;
-      const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
-
-      await pool.query(
-        `UPDATE users SET subscription_status = $1, current_period_end = $2 WHERE stripe_customer_id = $3`,
-        [status, currentPeriodEnd, subscription.customer]
-      );
-      console.log(`Subscription updated for customer ${subscription.customer}: ${status}`);
     }
-
     res.json({ received: true });
   } catch (err) {
     console.error('Stripe webhook handling error:', err);
     res.status(500).json({ error: err.message });
   }
 });
+
+// Stripe can send the same event more than once, so the purchase row is keyed on the
+// checkout session id: a repeat delivery inserts nothing and grants nothing twice.
+async function recordPurchase(userId, productKey, product, session) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const inserted = await client.query(
+      `INSERT INTO purchases (user_id, product_key, stripe_session_id, amount_pence, credits_granted)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (stripe_session_id) DO NOTHING RETURNING id`,
+      [userId, productKey, session.id, session.amount_total, product.credits]
+    );
+    if (inserted.rows.length) {
+      await client.query(
+        `UPDATE users SET conversation_credits = conversation_credits + $1,
+                          stripe_customer_id = COALESCE(stripe_customer_id, $2)
+         WHERE id = $3`,
+        [product.credits, session.customer || null, userId]
+      );
+      console.log(`Purchase recorded: user ${userId} bought ${productKey}`);
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -156,7 +156,28 @@ async function initSchema() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
-    console.log('Database schema ready (users, login_tokens, sessions, lesson_progress, gallery_submissions).');
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS conversation_credits INTEGER NOT NULL DEFAULT 0;`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS purchases (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        product_key TEXT NOT NULL,
+        stripe_session_id TEXT UNIQUE NOT NULL,
+        amount_pence INTEGER,
+        credits_granted INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        scope TEXT NOT NULL,
+        turns_left INTEGER NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log('Database schema ready (users, login_tokens, sessions, lesson_progress, gallery_submissions, purchases, conversations).');
   } catch (err) {
     console.error('Database schema setup failed:', err.message);
   }
@@ -486,10 +507,107 @@ async function callClaude(systemPrompt, userText, image, mediaType, maxTokens) {
   return parsed;
 }
 
-app.post('/api/critique', async (req, res) => {
+// ============ LESSON ACCESS AND TUTOR CONVERSATIONS ============
+// The lesson pages hide feedback from anyone without the right tier, but the check that
+// actually matters happens here, on the server, before any Anthropic call is made.
+function tierForLesson(slug) {
+  if (typeof slug !== 'string') return null;
+  if (/^lesson\d+$/.test(slug)) return 'beginner';
+  if (/^intermediate\d+$/.test(slug)) return 'intermediate';
+  if (/^advanced\d+$/.test(slug)) return 'advanced';
+  return null;
+}
+
+async function getOwnedTiers(userId) {
+  const result = await pool.query(
+    `SELECT DISTINCT product_key FROM purchases WHERE user_id = $1 AND product_key LIKE 'tier:%'`,
+    [userId]
+  );
+  return result.rows.map(r => r.product_key.slice('tier:'.length));
+}
+
+async function requireLessonAccess(req, res, next) {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) return res.status(401).json({ error: 'Please log in to get feedback on lessons.' });
+    const tier = tierForLesson(req.body && req.body.lesson);
+    if (!tier) return res.status(400).json({ error: 'Unknown lesson.' });
+    if (!user.is_admin) {
+      const owned = await getOwnedTiers(user.id);
+      if (!owned.includes(tier)) {
+        return res.status(403).json({ error: `This lesson is part of the ${tier.charAt(0).toUpperCase() + tier.slice(1)} tier. You can get it from your account page.` });
+      }
+    }
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('requireLessonAccess error:', err);
+    res.status(500).json({ error: 'Could not check your access. Please try again.' });
+  }
+}
+
+const OUT_OF_CONVERSATIONS = "You've used all your tutor conversations. You can top up 5 more for £4 on your account page.";
+
+// Starts a new conversation by spending one credit. Returns a token describing what was
+// spent, so it can be handed back if the feedback itself then fails.
+async function startConversation(user, scope) {
+  if (user.is_admin) return { admin: true };
+  const spent = await pool.query(
+    `UPDATE users SET conversation_credits = conversation_credits - 1
+     WHERE id = $1 AND conversation_credits > 0 RETURNING conversation_credits`,
+    [user.id]
+  );
+  if (!spent.rows.length) return null;
+  const convo = await pool.query(
+    `INSERT INTO conversations (user_id, scope, turns_left) VALUES ($1, $2, $3) RETURNING id`,
+    [user.id, scope, CONVERSATION_FOLLOW_UPS]
+  );
+  return { creditSpent: true, conversationId: convo.rows[0].id };
+}
+
+// A follow-up uses a turn from the student's latest open conversation on this lesson.
+// If there isn't one, it counts as a new conversation.
+async function continueConversation(user, scope) {
+  if (user.is_admin) return { admin: true };
+  const turn = await pool.query(
+    `UPDATE conversations SET turns_left = turns_left - 1
+     WHERE id = (
+       SELECT id FROM conversations
+       WHERE user_id = $1 AND scope = $2 AND turns_left > 0
+         AND created_at > NOW() - make_interval(hours => $3::int)
+       ORDER BY created_at DESC LIMIT 1
+     ) RETURNING id`,
+    [user.id, scope, CONVERSATION_WINDOW_HOURS]
+  );
+  if (turn.rows.length) return { turnUsed: true, conversationId: turn.rows[0].id };
+  return startConversation(user, scope);
+}
+
+async function refundConversation(user, spend) {
+  if (!spend || spend.admin) return;
+  try {
+    if (spend.creditSpent) {
+      await pool.query(`UPDATE users SET conversation_credits = conversation_credits + 1 WHERE id = $1`, [user.id]);
+      await pool.query(`DELETE FROM conversations WHERE id = $1`, [spend.conversationId]);
+    } else if (spend.turnUsed) {
+      await pool.query(`UPDATE conversations SET turns_left = turns_left + 1 WHERE id = $1`, [spend.conversationId]);
+    }
+  } catch (err) {
+    console.error('Could not refund a failed conversation:', err);
+  }
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+app.post('/api/critique', requireLessonAccess, async (req, res) => {
+  let spend = null;
   try {
     const { image, mediaType, explanation, lesson: lessonSlug } = req.body;
     if (!image || !mediaType) return res.status(400).json({ error: 'Missing image.' });
+    spend = await startConversation(req.user, 'lesson:' + req.body.lesson);
+    if (!spend) return res.status(402).json({ error: OUT_OF_CONVERSATIONS });
     const lesson = getLesson(lessonSlug);
     let userText = `Please give beginner-tier feedback on this piece (${lesson.title}).`;
     if (explanation) userText += ` The student added this note about their submission: "${explanation}"`;
@@ -497,14 +615,18 @@ app.post('/api/critique', async (req, res) => {
     res.json(parsed);
   } catch (err) {
     console.error('critique error:', err);
+    await refundConversation(req.user, spend);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/more-detail', async (req, res) => {
+app.post('/api/more-detail', requireLessonAccess, async (req, res) => {
+  let spend = null;
   try {
     const { image, mediaType, explanation, lastFeedback, lesson: lessonSlug } = req.body;
     if (!image || !mediaType || !lastFeedback) return res.status(400).json({ error: 'Missing data.' });
+    spend = await continueConversation(req.user, 'lesson:' + req.body.lesson);
+    if (!spend) return res.status(402).json({ error: OUT_OF_CONVERSATIONS });
     const lesson = getLesson(lessonSlug);
     let userText = `The student has already received this critique: praise="${lastFeedback.praise}", fix="${lastFeedback.fix}", encouragement="${lastFeedback.encouragement}". They've asked for more detail. Please go deeper, staying strictly within Beginner-tier scope.`;
     if (explanation) userText += ` The student's note on what they were going for: "${explanation}"`;
@@ -513,14 +635,18 @@ app.post('/api/more-detail', async (req, res) => {
     res.json(parsed);
   } catch (err) {
     console.error('more-detail error:', err);
+    await refundConversation(req.user, spend);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/revision', async (req, res) => {
+app.post('/api/revision', requireLessonAccess, async (req, res) => {
+  let spend = null;
   try {
     const { lesson: lessonSlug, priorImage, priorMediaType, image, mediaType } = req.body;
     if (!priorImage || !priorMediaType || !image || !mediaType) return res.status(400).json({ error: 'Missing image data.' });
+    spend = await continueConversation(req.user, 'lesson:' + req.body.lesson);
+    if (!spend) return res.status(402).json({ error: OUT_OF_CONVERSATIONS });
     const lesson = getLesson(lessonSlug);
     const messages = [{ role: 'user', content: [
       { type: 'text', text: 'Earlier version:' },
@@ -533,6 +659,7 @@ app.post('/api/revision', async (req, res) => {
     res.json(parsed);
   } catch (err) {
     console.error('revision error:', err);
+    await refundConversation(req.user, spend);
     res.status(500).json({ error: err.message });
   }
 });
@@ -844,20 +971,16 @@ app.get('/api/auth/me', async (req, res) => {
   try {
     const user = await getSessionUser(req);
     if (!user) return res.json({ loggedIn: false });
-    // A cancelling membership has still paid for its current period, so it should keep every
-    // lesson gate unlocked exactly like a fully active one until that period actually ends —
-    // every existing gate just checks subscriptionStatus === 'active', so this one line handles
-    // it without touching any lesson page. The real state is exposed separately below for
-    // account.html to show the honest "ending on [date]" picture.
-    const isCancelling = user.subscription_status === 'cancelling';
+    const ownedTiers = user.is_admin ? ['beginner', 'intermediate', 'advanced'] : await getOwnedTiers(user.id);
     res.json({
       loggedIn: true,
       email: user.email,
-      subscriptionStatus: user.is_admin ? 'active' : (isCancelling ? 'active' : user.subscription_status),
-      subscriptionPlan: user.is_admin ? 'admin' : user.subscription_plan,
       isAdmin: !!user.is_admin,
-      cancelling: isCancelling,
-      currentPeriodEnd: user.current_period_end
+      ownedTiers,
+      conversationCredits: user.conversation_credits || 0,
+      // Kept so older pages (the side-shoot gallery's free-trial lock) keep working:
+      // anyone who owns an Academy tier has every side-shoot unlocked.
+      subscriptionStatus: (user.is_admin || ownedTiers.length) ? 'active' : 'inactive'
     });
   } catch (err) {
     console.error('me error:', err);
@@ -962,6 +1085,10 @@ app.post('/api/claim-reward', async (req, res) => {
     const user = await getSessionUser(req);
     if (!user) return res.status(401).json({ error: 'Please log in first.' });
 
+    if (!user.is_admin) {
+      const done = await pool.query(`SELECT 1 FROM lesson_progress WHERE user_id = $1 AND lesson_slug = 'lesson6'`, [user.id]);
+      if (!done.rows.length) return res.status(403).json({ error: 'The greetings card is for students who have completed the Beginner tier.' });
+    }
     const { image, mediaType, recipientName, address, postcode, message } = req.body;
     if (!image || !mediaType) return res.status(400).json({ error: 'Missing image.' });
     if (!recipientName || !address || !postcode) return res.status(400).json({ error: 'Please fill in who the card should go to and their address.' });
@@ -980,9 +1107,9 @@ app.post('/api/claim-reward', async (req, res) => {
         to: [REWARD_NOTIFY_EMAIL],
         subject: `Greetings card reward claim — ${user.email}`,
         html: `<p>A student has just completed Beginner tier and claimed their free greetings card reward.</p>
-<p><b>Student email:</b> ${user.email}</p>
-<p><b>Send the card to:</b><br>${recipientName}<br>${address.replace(/\n/g, '<br>')}<br>${postcode}</p>
-<p><b>Message to write inside:</b><br>${message ? message.replace(/\n/g, '<br>') : '(none provided)'}</p>
+<p><b>Student email:</b> ${escapeHtml(user.email)}</p>
+<p><b>Send the card to:</b><br>${escapeHtml(recipientName)}<br>${escapeHtml(address).replace(/\n/g, '<br>')}<br>${escapeHtml(postcode)}</p>
+<p><b>Message to write inside:</b><br>${message ? escapeHtml(message).replace(/\n/g, '<br>') : '(none provided)'}</p>
 <p>Their finished piece is attached.</p>`,
         attachments: [{ content: image, filename: `finished-piece.${ext}` }]
       })
@@ -1000,122 +1127,6 @@ app.post('/api/claim-reward', async (req, res) => {
   }
 });
 
-app.get('/api/founder-slots', async (req, res) => {
-  try {
-    const result = await pool.query(`SELECT COUNT(*) FROM users WHERE signup_offer = 'founder'`);
-    const used = parseInt(result.rows[0].count, 10);
-    const remaining = Math.max(0, FOUNDER_SLOTS_CAP - used);
-    const available = remaining > 0 && !!FOUNDER_COUPON_ID;
-
-    let percentOff = null;
-    if (available) {
-      try {
-        const coupon = await stripeClient.coupons.retrieve(FOUNDER_COUPON_ID);
-        percentOff = coupon.percent_off;
-      } catch (e) {
-        console.error('Could not fetch founder coupon details:', e.message);
-      }
-    }
-
-    res.json({ remaining, cap: FOUNDER_SLOTS_CAP, available, percentOff });
-  } catch (err) {
-    console.error('founder-slots error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/pause-membership', async (req, res) => {
-  try {
-    const user = await getSessionUser(req);
-    if (!user) return res.status(401).json({ error: 'Please log in first.' });
-    if (user.subscription_status !== 'active') return res.status(400).json({ error: 'Your membership is not currently active.' });
-    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No subscription found on your account.' });
-
-    const subs = await stripeClient.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
-    if (!subs.data.length) return res.status(400).json({ error: 'Could not find an active subscription to pause.' });
-
-    await stripeClient.subscriptions.update(subs.data[0].id, {
-      pause_collection: { behavior: 'void' }
-    });
-
-    await pool.query(`UPDATE users SET subscription_status = 'paused' WHERE id = $1`, [user.id]);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('pause-membership error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/resume-membership', async (req, res) => {
-  try {
-    const user = await getSessionUser(req);
-    if (!user) return res.status(401).json({ error: 'Please log in first.' });
-    if (user.subscription_status !== 'paused') return res.status(400).json({ error: 'Your membership is not currently paused.' });
-    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No subscription found on your account.' });
-
-    const subs = await stripeClient.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
-    if (!subs.data.length) return res.status(400).json({ error: 'Could not find your subscription to resume.' });
-
-    await stripeClient.subscriptions.update(subs.data[0].id, {
-      pause_collection: ''
-    });
-
-    await pool.query(`UPDATE users SET subscription_status = 'active' WHERE id = $1`, [user.id]);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('resume-membership error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Genuinely different from pause: this ends the membership for good, but fairly — access
-// and lessons stay available until the period already paid for actually runs out, rather
-// than cutting someone off the moment they cancel.
-app.post('/api/cancel-membership', async (req, res) => {
-  try {
-    const user = await getSessionUser(req);
-    if (!user) return res.status(401).json({ error: 'Please log in first.' });
-    if (user.subscription_status !== 'active') return res.status(400).json({ error: 'Your membership is not currently active.' });
-    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No subscription found on your account.' });
-
-    const subs = await stripeClient.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
-    if (!subs.data.length) return res.status(400).json({ error: 'Could not find an active subscription to cancel.' });
-
-    await stripeClient.subscriptions.update(subs.data[0].id, {
-      cancel_at_period_end: true
-    });
-
-    await pool.query(`UPDATE users SET subscription_status = 'cancelling' WHERE id = $1`, [user.id]);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('cancel-membership error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Lets someone change their mind any time before the period actually ends.
-app.post('/api/undo-cancel-membership', async (req, res) => {
-  try {
-    const user = await getSessionUser(req);
-    if (!user) return res.status(401).json({ error: 'Please log in first.' });
-    if (user.subscription_status !== 'cancelling') return res.status(400).json({ error: 'Your membership is not currently set to cancel.' });
-    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No subscription found on your account.' });
-
-    const subs = await stripeClient.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
-    if (!subs.data.length) return res.status(400).json({ error: 'Could not find your subscription.' });
-
-    await stripeClient.subscriptions.update(subs.data[0].id, {
-      cancel_at_period_end: false
-    });
-
-    await pool.query(`UPDATE users SET subscription_status = 'active' WHERE id = $1`, [user.id]);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('undo-cancel-membership error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // One-time admin bootstrap. This never becomes a standing back door: it checks whether
 // an admin already exists on every call, and refuses outright once one does — so it's
 // safe to leave deployed rather than needing to be found and removed later.
@@ -1123,17 +1134,23 @@ app.post('/api/undo-cancel-membership', async (req, res) => {
 // prompt itself so future pages (the Wynander exhibition site, say) can reuse the same
 // assistant with their own facts injected, rather than needing a rebuild.
 const ACADEMY_FACTS = `
-- UAH Academy is an online art course run by Ulverston Art House, a real gallery and framing studio in Ulverston, Cumbria.
-- It's built for complete beginners — no experience needed. Lesson 1 is a simple exercise: draw one everyday object (an egg, apple, or mug) using light and shadow.
-- Feedback is genuinely AI-assisted, not fully automated — the AI gives detailed critique tuned specifically to each stage of the course, and the founder is personally involved at real milestones (not every single submission, but at the moments that matter).
-- The course runs Beginner through Intermediate through Advanced, six lessons per tier, self-paced — go as fast or slow as you like.
-- Pricing is £15/month, or £150/year (paying annually saves roughly two months). No hidden fees.
-- Membership can be paused, not just cancelled — billing stops immediately and progress is saved exactly where it was left, resumable any time.
-- There's a free way to try it first: "Side Shoots" — pick one themed piece (from groups called General, Texture, and Memory Lane) and get real AI feedback on it before enrolling, no payment required.
-- Finishing the Beginner tier earns a small, real framed print of the student's own work, made by UAH itself.
-- The course leads toward a planned exhibition series called "The Shape of Things to Come," where graduates get the chance to show and sell real work in a real venue as debut artists. The venue isn't finalised yet — UAH is in conversation with venues in Lancaster, Carlisle, and at Rheged.
-- Separately, UAH also runs a multi-vendor platform where people can sell their art more generally, described as "curate your own gallery."
-- The exact content of the Advanced tier is still being refined and isn't finalised yet.
+- UAH Academy is online art tuition run by Ulverston Art House, a real gallery and framing studio at 2-4 Brogden Street, Ulverston, Cumbria.
+- It's aimed mainly at people who want to improve for their own enjoyment. Exhibiting is available at the top level, but it's always optional, never a requirement.
+- There's no subscription. Everything is a one-off payment and nothing renews automatically.
+- There are three ways in:
+  1. Side-shoots: short themed pieces (in groups called Texture, General and Memory Lane). The first one is free, with real feedback, no account and no card needed. Further side-shoots will cost £5 each, including two tutor conversations; buying individual side-shoots isn't open yet. Anyone who owns an Academy tier has every side-shoot unlocked.
+  2. Courses: a course in one medium (drawing, watercolour, pastel, acrylic or oil) for £10 one-off, with six lessons and eight tutor conversations. Courses are opening soon and can't be bought yet.
+  3. The Academy: three tiers, Beginner, Intermediate and Advanced, £60 each, bought one at a time. Beginner and Intermediate have six lessons each; Advanced has five and its content is still being refined. Each tier includes 25 tutor conversations. Intermediate can be bought once Beginner is completed, and Advanced once Intermediate is completed. Tiers are bought from the account page after logging in.
+- Lessons are self-paced. The Beginner tier needs no experience: Lesson 1 is drawing one everyday object (an egg, apple or mug) using light and shadow.
+- A tutor conversation is one upload of the student's work plus the follow-up that comes with it (asking for more detail, or uploading a revised version). Extra conversations can be bought in packs of 5 for £4 from the account page.
+- Feedback is AI-assisted: the AI looks at the student's actual photo each time and gives critique tuned to the stage of the course. The founder is personally involved at real milestones, not every submission.
+- Completing the Beginner tier earns a free greetings card of the student's own work, posted by UAH.
+- Optional extras for finished work, all including UK postage: the work printed on a mug for £16, a pack of 10 greetings cards for £17.95, or a framed print for £47.95, framed at Ulverston Art House.
+- A free "Design a Christmas card" side-shoot is opening soon; cards printed from it are priced as normal.
+- Art materials: students can use whatever they have. Each course links to matching kits from UAH's partner Artway, and UAH may earn a small commission on kits bought through those links.
+- Students keep full copyright of everything they make. Showing work in the community gallery is optional.
+- The Academy leads toward a planned exhibition series called "The Shape of Things to Come", where Advanced students can choose to show and sell work in a real venue. The venue isn't finalised yet; UAH is in conversation with venues in Lancaster, Carlisle and at Rheged.
+- Separately, UAH runs a multi-vendor marketplace where people can sell their art, described as "curate your own gallery."
 `.trim();
 
 const FAQ_SYSTEM_PROMPT = `You are answering questions on the UAH Academy website from people considering whether to enrol. Your tone matters as much as your accuracy — you should sound exactly like the same warm, plain-spoken, honest voice the course itself uses when giving feedback on someone's art: no corporate chatbot phrasing, no forced enthusiasm, no filler.
@@ -1145,7 +1162,7 @@ Rules:
 - Never invent or guess at anything not in the facts above — no made-up dates, no invented policies, no guessed prices. If you don't know something, say so plainly and offer to have the founder follow up directly. This is not a failure — admitting you don't know something is exactly the same honesty the course itself is built on, and should be said with the same warmth, not as an apology.
 - If asked whether you're AI, say yes, plainly and without hedging. That's not something to talk around here — the whole point of this chat is to demonstrate what the AI feedback in the course is actually like: honest and genuinely useful, not evasive.
 - Keep answers short — a few sentences, not an essay. This is a conversation, not a brochure.
-- If someone seems ready to enrol or asks how to sign up, point them to the enrol/pricing section on the page rather than trying to close the sale yourself.
+- If someone seems ready to start or asks how to buy, point them to the free side-shoot or to logging in and their account page, rather than trying to close the sale yourself.
 - If a question is genuinely outside what you know (legal, highly specific personal circumstances, anything not covered above), say so honestly and suggest the founder can help directly — offer to take their email so the founder can follow up, but never fabricate a promise about response time.`;
 
 app.post('/api/faq-chat', async (req, res) => {
@@ -1220,32 +1237,35 @@ app.post('/api/create-checkout-session', async (req, res) => {
     const user = await getSessionUser(req);
     if (!user) return res.status(401).json({ error: 'Please log in first.' });
 
-    const { plan } = req.body;
-    const priceId = plan === 'annual' ? STRIPE_PRICE_ANNUAL : STRIPE_PRICE_MONTHLY;
-    if (!priceId) return res.status(500).json({ error: 'Pricing is not configured yet on the server.' });
+    const { product: productKey } = req.body;
+    const product = PRODUCTS[productKey];
+    if (!product) return res.status(400).json({ error: 'That item is not available.' });
+
+    if (product.tier) {
+      const owned = await getOwnedTiers(user.id);
+      if (owned.includes(product.tier)) return res.status(400).json({ error: 'You already have this tier.' });
+      if (product.requiresPassed && !user.is_admin) {
+        const done = await pool.query(`SELECT 1 FROM lesson_progress WHERE user_id = $1 AND lesson_slug = $2`, [user.id, product.requiresPassed]);
+        if (!done.rows.length) return res.status(403).json({ error: 'This tier opens once you have completed the one before it.' });
+      }
+    }
 
     const sessionParams = {
-      mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
+      mode: 'payment',
+      line_items: [{
+        price_data: { currency: 'gbp', unit_amount: product.amount, product_data: { name: product.name } },
+        quantity: 1
+      }],
       success_url: `${SITE_URL}/account.html?checkout=success`,
       cancel_url: `${SITE_URL}/account.html?checkout=cancelled`,
-      client_reference_id: String(user.id)
+      client_reference_id: String(user.id),
+      metadata: { productKey }
     };
     if (user.stripe_customer_id) {
       sessionParams.customer = user.stripe_customer_id;
     } else {
       sessionParams.customer_email = user.email;
-    }
-
-    // Check real, live founder-slot availability right before creating the session —
-    // never a cached or assumed number, always the true current count.
-    if (FOUNDER_COUPON_ID) {
-      const slotsResult = await pool.query(`SELECT COUNT(*) FROM users WHERE signup_offer = 'founder'`);
-      const used = parseInt(slotsResult.rows[0].count, 10);
-      if (used < FOUNDER_SLOTS_CAP) {
-        sessionParams.discounts = [{ coupon: FOUNDER_COUPON_ID }];
-        sessionParams.metadata = { founderOffer: 'true' };
-      }
+      sessionParams.customer_creation = 'always';
     }
 
     const checkoutSession = await stripeClient.checkout.sessions.create(sessionParams);

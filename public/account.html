@@ -32,7 +32,7 @@
   }
   .card{
     width:100%;
-    max-width:420px;
+    max-width:460px;
     background:var(--paper);
     border-radius:2px;
     padding:36px 32px;
@@ -104,6 +104,16 @@
   }
   button:hover{background:var(--clay);color:#fff;}
   .loading{color:var(--ink-soft);font-size:14px;}
+  .tier{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);}
+  .tier-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;}
+  .tier-head h2{font-family:'Fraunces',serif;font-weight:500;font-size:20px;margin:0;}
+  .tier-note{font-size:13.5px;color:var(--ink-soft);margin:6px 0 0 0;line-height:1.5;}
+  .buy{background:var(--moss);color:#fff;border:none;width:100%;min-height:44px;}
+  .buy:hover{background:var(--moss-dark);color:#fff;}
+  .buy:disabled{background:var(--line);color:var(--ink-soft);cursor:not-allowed;}
+  .notice{padding:12px 14px;margin-bottom:16px;font-size:14px;line-height:1.5;border-left:3px solid var(--moss);background:#EEF1E8;}
+  .notice.warn{border-color:var(--clay);background:#F6E9E4;}
+  .credits{font-family:'Fraunces',serif;font-size:28px;line-height:1;}
 </style>
 </head>
 <body>
@@ -115,6 +125,56 @@
 
 <script>
 const card = document.getElementById('card');
+
+const TIERS = [
+  { key: 'beginner', name: 'Beginner', requires: null, lessons: [
+    ['lesson1', 'Lesson 1: One Object, One Light'],
+    ['lesson2', 'Lesson 2: Two Objects, One Light'],
+    ['lesson3', 'Lesson 3: Line & Edges'],
+    ['lesson4', 'Lesson 4: Simple Still Life'],
+    ['lesson5', 'Lesson 5: Foreground & Background'],
+    ['lesson6', 'Lesson 6: First Finished Piece']
+  ]},
+  { key: 'intermediate', name: 'Intermediate', requires: ['lesson6', 'Beginner'], lessons: [
+    ['intermediate1', 'Lesson 1: Perspective Basics'],
+    ['intermediate2', 'Lesson 2: Life vs Reference'],
+    ['intermediate3', 'Lesson 3: Composition in Depth'],
+    ['intermediate4', 'Lesson 4: Colour Basics'],
+    ['intermediate5', 'Lesson 5: Negative Space and Framing'],
+    ['intermediate6', 'Lesson 6: Short Themed Series']
+  ]},
+  { key: 'advanced', name: 'Advanced', requires: ['intermediate6', 'Intermediate'], lessons: [
+    ['advanced1', 'Lesson 1: Refining a Personal Voice'],
+    ['advanced2', 'Lesson 2: Larger, Ambitious Pieces'],
+    ['advanced3', 'Lesson 3: Critique-Driven Iteration'],
+    ['advanced4', 'Lesson 4: Presenting & Framing'],
+    ['advanced5', 'Lesson 5: Preparing for Exhibition']
+  ]}
+];
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+async function startCheckout(product, button) {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Opening checkout…';
+  try {
+    const response = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Something went wrong.');
+    window.location.href = result.url;
+  } catch (err) {
+    alert(err.message);
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
 
 (async function loadAccount(){
   const meResponse = await fetch('/api/auth/me');
@@ -128,222 +188,75 @@ const card = document.getElementById('card');
     `;
     return;
   }
-  const isActive = data.subscriptionStatus === 'active';
-  const isPaused = data.subscriptionStatus === 'paused';
 
-  let founderHtml = '';
-  if (!isActive && !isPaused) {
-    try {
-      const slotsResponse = await fetch('/api/founder-slots');
-      const slots = await slotsResponse.json();
-      if (slots.available) {
-        const pct = slots.percentOff ? Math.round(slots.percentOff) : '';
-        founderHtml = `
-          <div style="margin-bottom:14px;padding:12px 14px;background:#F6E9E4;border-left:3px solid var(--clay);">
-            <p style="font-size:13px;color:var(--ink);margin:0;"><b>Founder Member rate:</b> ${pct}% off your first 3 months (or your first year, paid annually) — just ${slots.remaining} of ${slots.cap} spots left.</p>
-          </div>
-        `;
-      }
-    } catch (e) {
-      // if this fails, the standard prices below still work fine — no need to block on it
-    }
+  let passed = new Set();
+  try {
+    const progress = await (await fetch('/api/lessons/progress')).json();
+    passed = new Set(progress.passed || []);
+  } catch (e) { /* progress only affects which tiers can be bought */ }
+
+  const owned = new Set(data.ownedTiers || []);
+  const params = new URLSearchParams(window.location.search);
+  let notice = '';
+  if (params.get('checkout') === 'success') {
+    notice = `<div class="notice">Thank you, your payment went through. It can take a few seconds to appear here; if it hasn't, <a href="account.html">refresh this page</a>.</div>`;
+  } else if (params.get('checkout') === 'cancelled') {
+    notice = `<div class="notice warn">Checkout was cancelled and you haven't been charged.</div>`;
   }
 
-  const subscribeHtml = (isActive || isPaused) ? '' : `
-    <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
-      <div class="field-label" style="margin-bottom:10px;">Ready to enrol?</div>
-      ${founderHtml}
-      <button id="subscribeMonthlyBtn" style="background:var(--moss);color:#fff;border:none;width:100%;margin-bottom:8px;">£15/month</button>
-      <button id="subscribeAnnualBtn" style="background:transparent;color:var(--moss-dark);border:1px solid var(--moss);width:100%;">£150/year (save two months)</button>
-    </div>
-  `;
-  const memberAreaHtml = isActive ? `
-    <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
-      <div class="course-tier-label">Your course — Beginner</div>
-      <a href="lesson1.html" class="lesson-link">Lesson 1: One Object, One Light</a>
-      <a href="lesson2.html" class="lesson-link">Lesson 2: Two Objects, One Light</a>
-      <a href="lesson3.html" class="lesson-link">Lesson 3: Line & Edges</a>
-      <a href="lesson4.html" class="lesson-link">Lesson 4: Simple Still Life</a>
-      <a href="lesson5.html" class="lesson-link">Lesson 5: Foreground &amp; Background</a>
-      <a href="lesson6.html" class="lesson-link">Lesson 6: First Finished Piece</a>
-    </div>
+  const tiersHtml = TIERS.map(tier => {
+    if (owned.has(tier.key)) {
+      return `
+        <div class="tier">
+          <div class="tier-head"><h2>${tier.name}</h2><span class="status-badge active">Yours</span></div>
+          ${tier.lessons.map(([slug, title]) => `<a href="${slug}.html" class="lesson-link">${escapeHtml(title)}${passed.has(slug) ? ' ✓' : ''}</a>`).join('')}
+        </div>`;
+    }
+    const unlocked = !tier.requires || passed.has(tier.requires[0]) || data.isAdmin;
+    return `
+      <div class="tier">
+        <div class="tier-head"><h2>${tier.name}</h2><span class="field-value">£60</span></div>
+        <p class="tier-note" style="margin:0 0 12px 0;">${tier.lessons.length} lessons and 25 tutor conversations. One-off payment.</p>
+        <button class="buy" data-product="tier:${tier.key}" ${unlocked ? '' : 'disabled'}>Get the ${tier.name} tier for £60</button>
+        ${unlocked ? '' : `<p class="tier-note">Opens once you've completed the ${tier.requires[1]} tier.</p>`}
+      </div>`;
+  }).join('');
+
+  const hasAnyTier = owned.size > 0;
+  const creditsHtml = data.isAdmin ? '' : `
     <div class="field" style="margin-top:20px;">
-      <div class="course-tier-label">Your course — Intermediate</div>
-      <a href="intermediate1.html" class="lesson-link">Lesson 1: Perspective Basics</a>
-      <a href="intermediate2.html" class="lesson-link">Lesson 2: Life vs Reference</a>
-      <a href="intermediate3.html" class="lesson-link">Lesson 3: Composition in Depth</a>
-      <a href="intermediate4.html" class="lesson-link">Lesson 4: Colour Basics</a>
-      <a href="intermediate5.html" class="lesson-link">Lesson 5: Negative Space and Framing</a>
-      <a href="intermediate6.html" class="lesson-link">Lesson 6: Short Themed Series</a>
-    </div>
-    <div class="field" style="margin-top:20px;">
-      <div class="course-tier-label">Your course — Advanced</div>
-      <a href="advanced1.html" class="lesson-link">Lesson 1: Refining a Personal Voice</a>
-      <a href="advanced2.html" class="lesson-link">Lesson 2: Larger, Ambitious Pieces</a>
-      <a href="advanced3.html" class="lesson-link">Lesson 3: Critique-Driven Iteration</a>
-      <a href="advanced4.html" class="lesson-link">Lesson 4: Presenting &amp; Framing</a>
-      <a href="advanced5.html" class="lesson-link">Lesson 5: Preparing for Exhibition</a>
-    </div>
-    <div class="field" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
-      ${data.cancelling ? '' : `
-      <button id="pauseBtn" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:100%;margin-bottom:8px;">Pause my membership</button>
-      <div id="pauseConfirm" style="display:none;margin-bottom:8px;padding:12px;background:var(--parchment);border-radius:2px;">
-        <p style="font-size:13px;color:var(--ink);margin:0 0 10px 0;">Pausing stops billing immediately and holds your access until you resume — your progress stays exactly as it is. Are you sure?</p>
-        <button id="pauseConfirmYes" style="background:var(--clay);color:#fff;border:none;width:48%;margin-right:4%;">Yes, pause it</button>
-        <button id="pauseConfirmNo" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:48%;">Never mind</button>
-      </div>
-      <button id="cancelBtn" style="background:transparent;color:var(--clay);border:1px solid var(--clay);width:100%;">Cancel my membership</button>
-      <div id="cancelConfirm" style="display:none;margin-top:8px;padding:12px;background:var(--parchment);border-radius:2px;">
-        <p style="font-size:13px;color:var(--ink);margin:0 0 10px 0;">This ends your membership for good — different from pausing. You'll keep full access until the end of your current billing period, and you won't be charged again after that. Are you sure?</p>
-        <button id="cancelConfirmYes" style="background:var(--clay);color:#fff;border:none;width:48%;margin-right:4%;">Yes, cancel it</button>
-        <button id="cancelConfirmNo" style="background:transparent;color:var(--ink-soft);border:1px solid var(--line);width:48%;">Never mind</button>
-      </div>
-      `}
-    </div>
-  ` : '';
-  const cancellingHtml = data.cancelling ? `
-    <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
-      <p style="font-size:14px;color:var(--ink);margin:0 0 14px 0;">Your membership is set to end${data.currentPeriodEnd ? ' on ' + new Date(data.currentPeriodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''} — you won't be charged again after that, and you'll keep full access right up until then. Changed your mind?</p>
-      <button id="keepMembershipBtn" style="background:var(--moss);color:#fff;border:none;width:100%;">Keep my membership</button>
-      <p id="keepMembershipStatus" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0 0;"></p>
-    </div>
-  ` : '';
-  const pausedHtml = isPaused ? `
-    <div class="field" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line);">
-      <p style="font-size:14px;color:var(--ink);margin:0 0 14px 0;">Your membership is paused — nothing's being charged, and your progress is exactly where you left it. Resume whenever you're ready.</p>
-      <button id="resumeBtn" style="background:var(--moss);color:#fff;border:none;width:100%;">Resume my membership</button>
-      <p id="resumeStatus" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0 0;"></p>
-    </div>
-  ` : '';
+      <div class="field-label">Tutor conversations left</div>
+      <div class="credits">${data.conversationCredits || 0}</div>
+      <p class="tier-note">One conversation is one upload of your work plus the follow-up that comes with it.</p>
+      ${hasAnyTier ? `<button class="buy" data-product="credits:5" style="margin-top:12px;background:transparent;color:var(--moss-dark);border:1px solid var(--moss);">Top up 5 more for £4</button>` : ''}
+    </div>`;
+
   card.innerHTML = `
     <div class="eyebrow">UAH Academy</div>
-    <h1>You're logged in</h1>
+    <h1>Your account</h1>
+    ${notice}
     <div class="field">
       <div class="field-label">Email</div>
-      <div class="field-value">${data.email}</div>
+      <div class="field-value">${escapeHtml(data.email)}</div>
+      ${data.isAdmin ? '<span class="status-badge" style="background:var(--clay);color:#fff;margin-top:8px;">Admin access</span>' : ''}
     </div>
-    <div class="field">
-      <div class="field-label">Membership</div>
-      <span class="status-badge ${isActive ? 'active' : ''}">${data.subscriptionStatus || 'inactive'}</span>
-      ${data.isAdmin ? '<span class="status-badge" style="background:var(--clay);color:#fff;margin-left:6px;">Admin access</span>' : ''}
+    ${creditsHtml}
+    ${tiersHtml}
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:14px;">
+      <a href="uah-side-shoots-gallery.html">Browse side-shoots</a>
     </div>
-    ${memberAreaHtml}
-    ${cancellingHtml}
-    ${pausedHtml}
-    ${subscribeHtml}
     <button id="logoutBtn" style="margin-top:16px;">Log out</button>
   `;
+
+  card.querySelectorAll('button[data-product]').forEach(btn => {
+    btn.addEventListener('click', () => startCheckout(btn.dataset.product, btn));
+  });
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = 'login.html';
-    });
-
-    async function startCheckout(plan) {
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan })
-      });
-      const result = await response.json();
-      if (!response.ok) { alert(result.error || 'Something went wrong.'); return; }
-      window.location.href = result.url;
-    }
-    const monthlyBtn = document.getElementById('subscribeMonthlyBtn');
-    const annualBtn = document.getElementById('subscribeAnnualBtn');
-    if (monthlyBtn) monthlyBtn.addEventListener('click', () => startCheckout('monthly'));
-    if (annualBtn) annualBtn.addEventListener('click', () => startCheckout('annual'));
-
-    const pauseBtn = document.getElementById('pauseBtn');
-    if (pauseBtn) {
-      pauseBtn.addEventListener('click', () => {
-        pauseBtn.style.display = 'none';
-        document.getElementById('pauseConfirm').style.display = 'block';
-      });
-      document.getElementById('pauseConfirmNo').addEventListener('click', () => {
-        document.getElementById('pauseConfirm').style.display = 'none';
-        pauseBtn.style.display = 'block';
-      });
-      document.getElementById('pauseConfirmYes').addEventListener('click', async (e) => {
-        e.target.disabled = true;
-        e.target.textContent = 'Pausing…';
-        try {
-          const response = await fetch('/api/pause-membership', { method: 'POST' });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Something went wrong.');
-          window.location.reload();
-        } catch (err) {
-          alert(err.message);
-          e.target.disabled = false;
-          e.target.textContent = 'Yes, pause it';
-        }
-      });
-    }
-
-    const resumeBtn = document.getElementById('resumeBtn');
-    if (resumeBtn) {
-      resumeBtn.addEventListener('click', async () => {
-        resumeBtn.disabled = true;
-        resumeBtn.textContent = 'Resuming…';
-        const statusEl = document.getElementById('resumeStatus');
-        try {
-          const response = await fetch('/api/resume-membership', { method: 'POST' });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Something went wrong.');
-          window.location.reload();
-        } catch (err) {
-          statusEl.textContent = err.message;
-          resumeBtn.disabled = false;
-          resumeBtn.textContent = 'Resume my membership';
-        }
-      });
-    }
-
-    const cancelBtn = document.getElementById('cancelBtn');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => {
-        cancelBtn.style.display = 'none';
-        document.getElementById('cancelConfirm').style.display = 'block';
-      });
-      document.getElementById('cancelConfirmNo').addEventListener('click', () => {
-        document.getElementById('cancelConfirm').style.display = 'none';
-        cancelBtn.style.display = 'block';
-      });
-      document.getElementById('cancelConfirmYes').addEventListener('click', async (e) => {
-        e.target.disabled = true;
-        e.target.textContent = 'Cancelling…';
-        try {
-          const response = await fetch('/api/cancel-membership', { method: 'POST' });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Something went wrong.');
-          window.location.reload();
-        } catch (err) {
-          alert(err.message);
-          e.target.disabled = false;
-          e.target.textContent = 'Yes, cancel it';
-        }
-      });
-    }
-
-    const keepMembershipBtn = document.getElementById('keepMembershipBtn');
-    if (keepMembershipBtn) {
-      keepMembershipBtn.addEventListener('click', async () => {
-        keepMembershipBtn.disabled = true;
-        keepMembershipBtn.textContent = 'Just a moment…';
-        const statusEl = document.getElementById('keepMembershipStatus');
-        try {
-          const response = await fetch('/api/undo-cancel-membership', { method: 'POST' });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Something went wrong.');
-          window.location.reload();
-        } catch (err) {
-          statusEl.textContent = err.message;
-          keepMembershipBtn.disabled = false;
-          keepMembershipBtn.textContent = 'Keep my membership';
-        }
-      });
-    }
+  });
 })().catch(() => {
-  card.innerHTML = `<div class="eyebrow">UAH Academy</div><h1>Something went wrong</h1><p style="font-size:14.5px;color:var(--ink-soft);">Could not check your login status. Please try again.</p>`;
+  card.innerHTML = `<div class="eyebrow">UAH Academy</div><h1>Something went wrong</h1><p style="font-size:14.5px;color:var(--ink-soft);">Could not load your account. Please refresh the page.</p>`;
 });
 </script>
 </body>

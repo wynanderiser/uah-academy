@@ -387,7 +387,7 @@
   try {
     const response = await fetch('/api/auth/me');
     const data = await response.json();
-    if (data.loggedIn && data.subscriptionStatus === 'active') {
+    if (data.loggedIn && (data.isAdmin || (data.ownedTiers || []).includes('beginner'))) {
       // Logged in and paying isn't enough on its own — this lesson also has to have been earned.
       // Checked here directly, not just hidden on account.html, so typing this URL can't skip ahead.
       const progressResponse = await fetch('/api/lessons/progress');
@@ -405,7 +405,7 @@
     } else {
       gateMessage.innerHTML = `
         <h1 style="font-family:'Fraunces',serif;font-weight:500;font-size:26px;margin:0 0 12px 0;">This lesson is part of UAH Academy</h1>
-        <p style="font-size:15px;color:var(--ink-soft);line-height:1.55;">Please <a href="login.html">log in</a>, and enrol if you haven't already, to access this lesson.</p>
+        <p style="font-size:15px;color:var(--ink-soft);line-height:1.55;">Please <a href="login.html">log in</a>, then get the Beginner tier from your <a href="account.html">account page</a> if you haven't already.</p>
       `;
     }
   } catch (err) {
