@@ -137,6 +137,8 @@
   .locked{filter:grayscale(65%);opacity:0.55;cursor:not-allowed;pointer-events:none;position:relative;}
   .lock-badge{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:38px;height:38px;background:rgba(20,24,31,0.82);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.4);}
   .lock-badge svg{width:16px;height:16px;}
+  .priced .canvas img{filter:grayscale(45%);opacity:0.8;}
+  .price-tag{position:absolute;top:8px;right:8px;background:var(--ink);color:var(--brass-light);border:1px solid var(--brass);font-size:12px;font-weight:600;padding:3px 9px;}
 
   .seasonal{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,0.9fr);gap:0;margin-top:64px;background:var(--paper);color:var(--ink);border-top:4px solid var(--oxblood);}
   .seasonal img{display:block;width:100%;height:100%;object-fit:cover;aspect-ratio:3/2;}
@@ -336,7 +338,7 @@
     <div class="head-row" style="margin-bottom:24px;">
       <div>
         <h2 id="ss-title">Step into the gallery and pick one to begin.</h2>
-        <p class="lede">Each side-shoot guides you through one piece to hang on your own wall. Your first one is free, with real feedback and no card needed. Owning any Academy tier unlocks them all, and individual side-shoots at £5 each are opening soon.</p>
+        <p class="lede">Each side-shoot guides you through one piece to hang on your own wall. Your first one is free, with real feedback and no card needed. After that, each side-shoot is £5 with two tutor conversations included, or own any Academy tier to unlock them all.</p>
       </div>
     </div>
 
@@ -690,20 +692,19 @@
 const LOCK_KEY = 'uah_sideshoot_picked';
 const sideShootPieces = document.querySelectorAll('.wall-row .piece[data-theme]');
 
-function lockOtherPieces(pickedSlug){
+// After the free side-shoot has been used, the others show their £5 price but stay
+// clickable: each one's page explains how to unlock it.
+function markPricedPieces(pickedSlug, ownedSlugs){
   sideShootPieces.forEach(el => {
-    if (el.dataset.theme !== pickedSlug) {
-      el.classList.add('locked');
-      el.removeAttribute('href');
-      if (!el.querySelector('.lock-badge')) {
-        const canvas = el.querySelector('.canvas');
-        if (canvas) {
-          const badge = document.createElement('div');
-          badge.className = 'lock-badge';
-          badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#E0C169" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>';
-          canvas.appendChild(badge);
-        }
-      }
+    const slug = el.dataset.theme;
+    if (slug === pickedSlug || ownedSlugs.includes(slug)) return;
+    el.classList.add('priced');
+    const canvas = el.querySelector('.canvas');
+    if (canvas && !canvas.querySelector('.price-tag')) {
+      const tag = document.createElement('span');
+      tag.className = 'price-tag';
+      tag.textContent = '£5';
+      canvas.appendChild(tag);
     }
   });
 }
@@ -732,23 +733,22 @@ function lockOtherPieces(pickedSlug){
   goTo(1);
 })();
 
-// Free-trial lock, unchanged from the previous page: enrolled members and admins see every
-// side-shoot; anyone else who has already picked their free one sees the others locked.
-(async function applyFreeTrialLock(){
+// Members with any Academy tier (and admins) have every side-shoot; otherwise, once the free
+// one is used, the rest show their price. The server makes the real decision on each page.
+(async function showSideshootPrices(){
+  let owned = [];
   try {
-    const response = await fetch('/api/auth/me');
-    const data = await response.json();
+    const data = await (await fetch('/api/auth/me')).json();
     if (data.loggedIn && (data.subscriptionStatus === 'active' || data.isAdmin)) {
       localStorage.removeItem(LOCK_KEY);
       return;
     }
+    owned = data.ownedSideshoots || [];
   } catch (e) {
-    console.error('Could not check membership status, falling back to local lock state:', e);
+    console.error('Could not check account status:', e);
   }
-  const alreadyPicked = localStorage.getItem(LOCK_KEY);
-  if (alreadyPicked) {
-    lockOtherPieces(alreadyPicked);
-  }
+  const picked = localStorage.getItem(LOCK_KEY);
+  if (picked) markPricedPieces(picked, owned);
 })();
 </script>
 

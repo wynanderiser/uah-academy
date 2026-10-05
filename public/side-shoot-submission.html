@@ -363,6 +363,15 @@
   .fb-more ul{margin:4px 0 0 0;padding-left:20px;}
   .fb-more li{font-size:15px;line-height:1.6;margin-bottom:8px;}
   .fb-more li:last-child{margin-bottom:0;}
+  .access-panel{margin:18px 0 22px;padding:18px 20px;background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--moss);font-size:15px;line-height:1.55;}
+  .access-panel.locked{border-left-color:var(--clay);}
+  .access-panel h2{font-family:'Fraunces',serif;font-weight:500;font-size:22px;margin:0 0 8px 0;}
+  .access-panel p{margin:0 0 10px 0;}
+  .access-panel p:last-child{margin-bottom:0;}
+  .access-panel .unlock-btn{background:var(--moss);color:#fff;border:none;padding:12px 22px;font-family:'Work Sans',sans-serif;font-weight:600;font-size:15px;border-radius:2px;cursor:pointer;min-height:44px;}
+  .access-panel .unlock-btn:hover{background:var(--moss-dark);}
+  .access-panel .unlock-btn:disabled{opacity:0.6;cursor:wait;}
+  .access-panel .small{font-size:13.5px;color:var(--ink-soft);}
 </style>
 </head>
 <body>
@@ -374,6 +383,9 @@
   <p class="lede"><b>Brief:</b> <span id="themeBrief"></span></p>
   <p class="lede"><b>Ready to submit?</b> Natural light, straight-on photo, plain background works best when you photograph it.</p>
 
+  <div class="access-panel" id="accessPanel" style="display:none;" aria-live="polite"></div>
+
+  <div id="submitArea">
   <div class="mount">
     <div class="drop" id="drop">
       <div class="drop-msg" id="dropMsg"><b>Click to choose a photo</b><br>or drag one in</div>
@@ -389,6 +401,7 @@
   <div class="actions">
     <button id="submitBtn" disabled>Get feedback</button>
     <button id="resetBtn">Start over</button>
+  </div>
   </div>
   <div class="status" id="status"></div>
   <div class="error" id="error"></div>
@@ -1096,6 +1109,104 @@ function renderMoreDetail(details){
   `;
   feedbackEl.querySelector('.fb-card').appendChild(block);
 }
+</script>
+<script>
+// Side-shoot access: free (your one free side-shoot), owned (bought, or any Academy tier),
+// or locked (unlock for £5). The server makes the real decision; this just explains it.
+(function sideshootAccess(){
+  const panel = document.getElementById('accessPanel');
+  const area = document.getElementById('submitArea');
+  const params = new URLSearchParams(window.location.search);
+  const checkout = params.get('checkout');
+  const cleanReturn = 'side-shoot-submission.html?theme=' + encodeURIComponent(themeSlug);
+
+  function esc(t){ return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  async function fetchAccess(){
+    const r = await fetch('/api/sideshoot/access?theme=' + encodeURIComponent(themeSlug));
+    if (!r.ok) throw new Error('access check failed');
+    return r.json();
+  }
+
+  function show(html, locked){
+    panel.innerHTML = html;
+    panel.classList.toggle('locked', !!locked);
+    panel.style.display = 'block';
+    area.style.display = locked ? 'none' : '';
+  }
+
+  async function unlock(btn){
+    btn.disabled = true;
+    btn.textContent = 'Opening checkout…';
+    try {
+      const r = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: 'sideshoot:' + themeSlug })
+      });
+      const result = await r.json();
+      if (!r.ok) throw new Error(result.error || 'Something went wrong.');
+      window.location.href = result.url;
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Unlock for £5';
+      alert(err.message);
+    }
+  }
+
+  function render(a){
+    if (a.mode === 'owned') {
+      const thanks = checkout === 'success' ? '<p><b>Thank you, this side-shoot is yours.</b></p>' : '';
+      const credits = a.isAdmin ? '' : `<p class="small">Tutor conversations left: ${a.conversationCredits}. One conversation is one upload plus the follow-up that comes with it.</p>`;
+      if (thanks || credits) show(thanks + credits, false); else panel.style.display = 'none';
+      return;
+    }
+    if (a.mode === 'free') {
+      show(a.freeTheme
+        ? '<p>This is your free side-shoot.</p>'
+        : '<p><b>Your first side-shoot is free</b>, with no account or card needed. You get one free side-shoot, so make it the one you like best.</p>', false);
+      return;
+    }
+    const cancelled = checkout === 'cancelled' ? '<p class="small">Checkout was cancelled and you haven\'t been charged.</p>' : '';
+    const action = a.loggedIn
+      ? '<button class="unlock-btn" id="unlockBtn">Unlock for £5</button>'
+      : '<button class="unlock-btn" id="loginBtn">Log in to unlock</button><p class="small" style="margin-top:10px;">Logging in uses a link sent to your email, no password. If you own an Academy tier, every side-shoot is already unlocked for you.</p>';
+    show(`
+      <h2>Unlock this side-shoot for £5</h2>
+      <p>Your free side-shoot was "${esc(a.freeThemeTitle || 'another theme')}". This one is £5, a one-off payment, and includes two tutor conversations.</p>
+      ${cancelled}
+      ${action}
+    `, true);
+    const unlockBtn = document.getElementById('unlockBtn');
+    if (unlockBtn) unlockBtn.addEventListener('click', () => unlock(unlockBtn));
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) loginBtn.addEventListener('click', () => {
+      try { localStorage.setItem('uah_return_to', cleanReturn); } catch (e) {}
+      window.location.href = 'login.html';
+    });
+  }
+
+  (async () => {
+    try {
+      let a = await fetchAccess();
+      // Stripe confirms payment to the server a moment after returning here, so wait briefly.
+      if (checkout === 'success' && a.mode !== 'owned') {
+        show('<p>Payment received. Unlocking your side-shoot…</p>', true);
+        for (let i = 0; i < 10 && a.mode !== 'owned'; i++) {
+          await new Promise(r => setTimeout(r, 2000));
+          a = await fetchAccess();
+        }
+        if (a.mode !== 'owned') {
+          show('<p>Your payment went through, but it hasn\'t reached us yet. <a href="' + cleanReturn + '">Refresh this page</a> in a minute.</p>', true);
+          return;
+        }
+      }
+      render(a);
+    } catch (e) {
+      console.error('Could not check side-shoot access:', e);
+    }
+  })();
+})();
 </script>
 </body>
 </html>

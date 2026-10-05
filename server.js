@@ -19,6 +19,20 @@ const PRODUCTS = {
 // One "conversation" = one upload plus the back-and-forth that follows it. The first
 // upload uses one credit; follow-ups (more detail, a revised version) on the same lesson
 // within a day draw on that conversation's turns instead of using another credit.
+const SIDESHOOT_PRICE_PENCE = 500;
+const SIDESHOOT_CREDITS = 2;
+
+// Side-shoots are priced individually, one product per theme, built from the theme list.
+function getProduct(productKey) {
+  if (PRODUCTS[productKey]) return PRODUCTS[productKey];
+  if (typeof productKey === 'string' && productKey.startsWith('sideshoot:')) {
+    const slug = productKey.slice('sideshoot:'.length);
+    const theme = SIDESHOOT_THEMES[slug];
+    if (theme) return { name: `UAH side-shoot: ${theme.title}`, amount: SIDESHOOT_PRICE_PENCE, credits: SIDESHOOT_CREDITS, sideshoot: slug };
+  }
+  return null;
+}
+
 const CONVERSATION_FOLLOW_UPS = 9;
 const CONVERSATION_WINDOW_HOURS = 24;
 
@@ -41,7 +55,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const productKey = session.metadata && session.metadata.productKey;
-      const product = PRODUCTS[productKey];
+      const product = getProduct(productKey);
       const userId = parseInt(session.client_reference_id, 10);
       if (session.mode === 'payment' && session.payment_status === 'paid' && product && userId) {
         await recordPurchase(userId, productKey, product, session);
@@ -169,6 +183,14 @@ async function initSchema() {
       );
     `);
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS free_sideshoots (
+        id SERIAL PRIMARY KEY,
+        visitor_hash TEXT UNIQUE NOT NULL,
+        theme TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS conversations (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),
@@ -204,7 +226,7 @@ function sideshootRateLimit(req, res, next) {
     globalWindowStart = now;
   }
   if (globalCount >= GLOBAL_DAILY_LIMIT) {
-    return res.status(429).json({ error: 'This tool has reached its daily limit for free use. Please try again tomorrow, or enrol in UAH Academy for full access.' });
+    return res.status(429).json({ error: 'Free side-shoot feedback has reached its daily limit. Please try again tomorrow, or unlock this side-shoot for £5 to continue now.' });
   }
 
   const ip = req.ip;
@@ -213,7 +235,7 @@ function sideshootRateLimit(req, res, next) {
     entry = { count: 0, windowStart: now };
   }
   if (entry.count >= PER_IP_LIMIT) {
-    return res.status(429).json({ error: "You've reached today's limit for free use from this connection. Enrol in UAH Academy to continue." });
+    return res.status(429).json({ error: "You've reached today's limit for free feedback from this connection. Please try again tomorrow, or unlock this side-shoot for £5 to continue now." });
   }
 
   entry.count += 1;
@@ -666,16 +688,28 @@ app.post('/api/revision', requireLessonAccess, async (req, res) => {
 
 // ============ SIDE SHOOTS ============
 
+// Must match the THEMES list in side-shoot-submission.html, or feedback is given
+// against the wrong brief.
 const SIDESHOOT_THEMES = {
   moon: { title: "A Pastel Moon", brief: "Soft gradients, one quiet light source. Let the colours stay gentle — this is about calm, not drama." },
   sunset: { title: "An African Sunset", brief: "Bold, warm colour and a strong horizon. Let it feel hot — this is about real heat and contrast, not subtlety." },
   coastline: { title: "A Stormy Coastline", brief: "Rough, choppy water and heavy, energetic marks. Let it feel wild — this is about mood, not calm precision." },
   garden: { title: "A Quiet Garden Corner", brief: "Layered greens and soft shapes. Take your time — this is about gentle looking, not speed." },
-  cityscape: { title: "A Midnight Cityscape", brief: "Hard edges and one warm light in the dark. Let the shapes stay simple — this is about contrast and quiet drama." }
+  cityscape: { title: "A Midnight Cityscape", brief: "Hard edges and one warm light in the dark. Let the shapes stay simple — this is about contrast and quiet drama." },
+  driftwood: { title: "Sea-Worn Driftwood", brief: "Bleached wood and real grain — every curve tells you which way growth once went. This is about texture and form, not colour." },
+  feather: { title: "A Single Feather", brief: "Fine, repeating structure up close. This is about patience with detail, not the whole bird." },
+  frost: { title: "Frost on Glass", brief: "Delicate, branching ice patterns. This is about restraint and fine line work, not big shapes." },
+  shell: { title: "A Weathered Shell", brief: "Spiral form and quiet, earned colour. This is about structure built one ridge at a time." },
+  bark: { title: "Old Bark", brief: "Rough, honest texture on a real surface. This is about mark-making, not smoothness." },
+  "loved-object": { title: "Something You Keep", brief: "Not about what it looks like to others — what it means to you. This is about personal significance, drawn honestly." },
+  "old-photograph": { title: "An Old Photograph", brief: "The photo itself, not just the memory inside it — creases, tone, and all. This is about drawing an object, not a scene." },
+  "familiar-doorway": { title: "The Door You Know", brief: "The one you've walked through a thousand times, really looked at once. This is about perspective and proportion on a subject you know too well to actually see." },
+  "worn-shoes": { title: "Well-Worn Shoes", brief: "Every scuff a small piece of honest history. This is about capturing wear and use, not a clean product shot." },
+  "everyday-cup": { title: "The Cup You Always Reach For", brief: "Chips and all — that's exactly the point. This is about drawing a familiar object honestly, flaws included." }
 };
 
 function getTheme(slug){
-  return SIDESHOOT_THEMES[slug] || SIDESHOOT_THEMES.sunset;
+  return SIDESHOOT_THEMES[slug];
 }
 
 function buildSideshootSystemPrompt(theme){
@@ -762,7 +796,113 @@ async function callClaudeMessages(systemPrompt, messages, maxTokens, expectJSON 
   return parsed;
 }
 
-app.post('/api/sideshoot/critique', sideshootRateLimit, async (req, res) => {
+// ============ SIDE-SHOOT ACCESS ============
+// Three ways to be allowed feedback on a side-shoot:
+//  - "owned": logged in and either bought this side-shoot, own any Academy tier, or admin.
+//    Feedback then uses the student's tutor conversations, like lessons do.
+//  - "free": the one free side-shoot per visitor, no account needed. Remembered on the
+//    server by a hash of the connection's address (never the address itself), so clearing
+//    the browser doesn't reset it. Still covered by the daily rate limit.
+//  - "locked": anything else, which can be unlocked for £5.
+function visitorHash(req) {
+  return crypto.createHash('sha256').update((process.env.IP_HASH_SALT || 'uah-academy') + ':' + req.ip).digest('hex');
+}
+
+async function getSideshootOwnership(user, slug) {
+  if (!user) return false;
+  if (user.is_admin) return true;
+  const result = await pool.query(
+    `SELECT 1 FROM purchases WHERE user_id = $1 AND (product_key = $2 OR product_key LIKE 'tier:%') LIMIT 1`,
+    [user.id, 'sideshoot:' + slug]
+  );
+  return result.rows.length > 0;
+}
+
+async function getSideshootAccess(req, slug) {
+  const user = await getSessionUser(req);
+  if (await getSideshootOwnership(user, slug)) return { mode: 'owned', user };
+  const trial = await pool.query(`SELECT theme FROM free_sideshoots WHERE visitor_hash = $1`, [visitorHash(req)]);
+  if (!trial.rows.length) return { mode: 'free', user, freeTheme: null };
+  if (trial.rows[0].theme === slug) return { mode: 'free', user, freeTheme: slug };
+  return { mode: 'locked', user, freeTheme: trial.rows[0].theme };
+}
+
+function sideshootGate(isNewUpload) {
+  return async (req, res, next) => {
+    try {
+      const slug = req.body && req.body.theme;
+      if (!SIDESHOOT_THEMES[slug]) return res.status(400).json({ error: 'Unknown side-shoot.' });
+      const access = await getSideshootAccess(req, slug);
+      if (access.mode === 'locked') {
+        const freeTitle = SIDESHOOT_THEMES[access.freeTheme] ? SIDESHOOT_THEMES[access.freeTheme].title : 'another side-shoot';
+        return res.status(402).json({ error: `Your free side-shoot was "${freeTitle}". You can unlock this one for £5 at the top of this page.`, locked: true });
+      }
+      if (access.mode === 'owned') {
+        const spend = isNewUpload
+          ? await startConversation(access.user, 'sideshoot:' + slug)
+          : await continueConversation(access.user, 'sideshoot:' + slug);
+        if (!spend) return res.status(402).json({ error: OUT_OF_CONVERSATIONS });
+        req.user = access.user;
+        req.spend = spend;
+        return next();
+      }
+      // free path: rate-limit first, then record the choice on the first piece of real feedback
+      if (!access.freeTheme && !isNewUpload) {
+        return res.status(400).json({ error: 'Upload your piece first to start your free side-shoot.' });
+      }
+      sideshootRateLimit(req, res, async () => {
+        try {
+          if (!access.freeTheme) {
+            await pool.query(
+              `INSERT INTO free_sideshoots (visitor_hash, theme) VALUES ($1, $2) ON CONFLICT (visitor_hash) DO NOTHING`,
+              [visitorHash(req), slug]
+            );
+            req.newFreeTrial = true;
+          }
+          next();
+        } catch (err) {
+          console.error('Could not record free side-shoot:', err);
+          res.status(500).json({ error: 'Could not start your free side-shoot. Please try again.' });
+        }
+      });
+    } catch (err) {
+      console.error('sideshootGate error:', err);
+      res.status(500).json({ error: 'Could not check access to this side-shoot. Please try again.' });
+    }
+  };
+}
+
+// If feedback fails, give back whatever was spent: a conversation for owners, or the
+// free choice itself for a first-time visitor, so they can try again or pick another.
+async function refundSideshoot(req) {
+  if (req.spend) await refundConversation(req.user, req.spend);
+  if (req.newFreeTrial) {
+    try { await pool.query(`DELETE FROM free_sideshoots WHERE visitor_hash = $1`, [visitorHash(req)]); }
+    catch (e) { console.error('Could not reset free side-shoot after a failure:', e); }
+  }
+}
+
+app.get('/api/sideshoot/access', async (req, res) => {
+  try {
+    const slug = req.query.theme;
+    if (!SIDESHOOT_THEMES[slug]) return res.status(400).json({ error: 'Unknown side-shoot.' });
+    const access = await getSideshootAccess(req, slug);
+    res.json({
+      mode: access.mode,
+      loggedIn: !!access.user,
+      conversationCredits: access.user ? (access.user.conversation_credits || 0) : null,
+      isAdmin: !!(access.user && access.user.is_admin),
+      freeTheme: access.freeTheme,
+      freeThemeTitle: access.freeTheme && SIDESHOOT_THEMES[access.freeTheme] ? SIDESHOOT_THEMES[access.freeTheme].title : null,
+      price: SIDESHOOT_PRICE_PENCE / 100
+    });
+  } catch (err) {
+    console.error('sideshoot access error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/sideshoot/critique', sideshootGate(true), async (req, res) => {
   try {
     const { theme: themeSlug, image, mediaType, explanation } = req.body;
     if (!image || !mediaType) return res.status(400).json({ error: 'Missing image.' });
@@ -777,11 +917,12 @@ app.post('/api/sideshoot/critique', sideshootRateLimit, async (req, res) => {
     res.json(parsed);
   } catch (err) {
     console.error('sideshoot critique error:', err);
+    await refundSideshoot(req);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/sideshoot/more-detail', sideshootRateLimit, async (req, res) => {
+app.post('/api/sideshoot/more-detail', sideshootGate(false), async (req, res) => {
   try {
     const { theme: themeSlug, image, mediaType, explanation, lastFeedback } = req.body;
     if (!image || !mediaType || !lastFeedback) return res.status(400).json({ error: 'Missing data.' });
@@ -797,11 +938,12 @@ app.post('/api/sideshoot/more-detail', sideshootRateLimit, async (req, res) => {
     res.json(parsed);
   } catch (err) {
     console.error('sideshoot more-detail error:', err);
+    await refundSideshoot(req);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/sideshoot/revision', sideshootRateLimit, async (req, res) => {
+app.post('/api/sideshoot/revision', sideshootGate(false), async (req, res) => {
   try {
     const { theme: themeSlug, priorImage, priorMediaType, image, mediaType } = req.body;
     if (!priorImage || !priorMediaType || !image || !mediaType) return res.status(400).json({ error: 'Missing image data.' });
@@ -817,11 +959,12 @@ app.post('/api/sideshoot/revision', sideshootRateLimit, async (req, res) => {
     res.json(parsed);
   } catch (err) {
     console.error('sideshoot revision error:', err);
+    await refundSideshoot(req);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/sideshoot/chat', sideshootRateLimit, async (req, res) => {
+app.post('/api/sideshoot/chat', sideshootGate(false), async (req, res) => {
   try {
     const { theme: themeSlug, messages } = req.body;
     if (!Array.isArray(messages) || messages.length === 0) return res.status(400).json({ error: 'Missing conversation.' });
@@ -830,6 +973,7 @@ app.post('/api/sideshoot/chat', sideshootRateLimit, async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.error('sideshoot chat error:', err);
+    await refundSideshoot(req);
     res.status(500).json({ error: err.message });
   }
 });
@@ -972,11 +1116,14 @@ app.get('/api/auth/me', async (req, res) => {
     const user = await getSessionUser(req);
     if (!user) return res.json({ loggedIn: false });
     const ownedTiers = user.is_admin ? ['beginner', 'intermediate', 'advanced'] : await getOwnedTiers(user.id);
+    const ssRows = await pool.query(`SELECT DISTINCT product_key FROM purchases WHERE user_id = $1 AND product_key LIKE 'sideshoot:%'`, [user.id]);
+    const ownedSideshoots = ssRows.rows.map(r => r.product_key.slice('sideshoot:'.length));
     res.json({
       loggedIn: true,
       email: user.email,
       isAdmin: !!user.is_admin,
       ownedTiers,
+      ownedSideshoots,
       conversationCredits: user.conversation_credits || 0,
       // Kept so older pages (the side-shoot gallery's free-trial lock) keep working:
       // anyone who owns an Academy tier has every side-shoot unlocked.
@@ -1138,7 +1285,7 @@ const ACADEMY_FACTS = `
 - It's aimed mainly at people who want to improve for their own enjoyment. Exhibiting is available at the top level, but it's always optional, never a requirement.
 - There's no subscription. Everything is a one-off payment and nothing renews automatically.
 - There are three ways in:
-  1. Side-shoots: short themed pieces (in groups called Texture, General and Memory Lane). The first one is free, with real feedback, no account and no card needed. Further side-shoots will cost £5 each, including two tutor conversations; buying individual side-shoots isn't open yet. Anyone who owns an Academy tier has every side-shoot unlocked.
+  1. Side-shoots: short themed pieces (in groups called Texture, General and Memory Lane). The first one is free, with real feedback, no account and no card needed. Every other side-shoot costs £5, including two tutor conversations, and is unlocked on the side-shoot's own page after logging in. Anyone who owns an Academy tier has every side-shoot unlocked.
   2. Courses: a course in one medium (drawing, watercolour, pastel, acrylic or oil) for £10 one-off, with six lessons and eight tutor conversations. Courses are opening soon and can't be bought yet.
   3. The Academy: three tiers, Beginner, Intermediate and Advanced, £60 each, bought one at a time. Beginner and Intermediate have six lessons each; Advanced has five and its content is still being refined. Each tier includes 25 tutor conversations. Intermediate can be bought once Beginner is completed, and Advanced once Intermediate is completed. Tiers are bought from the account page after logging in.
 - Lessons are self-paced. The Beginner tier needs no experience: Lesson 1 is drawing one everyday object (an egg, apple or mug) using light and shadow.
@@ -1238,7 +1385,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Please log in first.' });
 
     const { product: productKey } = req.body;
-    const product = PRODUCTS[productKey];
+    const product = getProduct(productKey);
     if (!product) return res.status(400).json({ error: 'That item is not available.' });
 
     if (product.tier) {
@@ -1250,14 +1397,22 @@ app.post('/api/create-checkout-session', async (req, res) => {
       }
     }
 
+    if (product.sideshoot) {
+      const access = await getSideshootOwnership(user, product.sideshoot);
+      if (access) return res.status(400).json({ error: 'You already have this side-shoot.' });
+    }
+    const returnPage = product.sideshoot
+      ? `${SITE_URL}/side-shoot-submission.html?theme=${encodeURIComponent(product.sideshoot)}&`
+      : `${SITE_URL}/account.html?`;
+
     const sessionParams = {
       mode: 'payment',
       line_items: [{
         price_data: { currency: 'gbp', unit_amount: product.amount, product_data: { name: product.name } },
         quantity: 1
       }],
-      success_url: `${SITE_URL}/account.html?checkout=success`,
-      cancel_url: `${SITE_URL}/account.html?checkout=cancelled`,
+      success_url: `${returnPage}checkout=success`,
+      cancel_url: `${returnPage}checkout=cancelled`,
       client_reference_id: String(user.id),
       metadata: { productKey }
     };

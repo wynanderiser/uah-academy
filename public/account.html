@@ -126,6 +126,8 @@
 <script>
 const card = document.getElementById('card');
 
+const SIDESHOOT_TITLES = {"moon": "A Pastel Moon", "sunset": "An African Sunset", "coastline": "A Stormy Coastline", "garden": "A Quiet Garden Corner", "cityscape": "A Midnight Cityscape", "driftwood": "Sea-Worn Driftwood", "feather": "A Single Feather", "frost": "Frost on Glass", "shell": "A Weathered Shell", "bark": "Old Bark", "loved-object": "Something You Keep", "old-photograph": "An Old Photograph", "familiar-doorway": "The Door You Know", "worn-shoes": "Well-Worn Shoes", "everyday-cup": "The Cup You Always Reach For"};
+
 const TIERS = [
   { key: 'beginner', name: 'Beginner', requires: null, lessons: [
     ['lesson1', 'Lesson 1: One Object, One Light'],
@@ -189,6 +191,15 @@ async function startCheckout(product, button) {
     return;
   }
 
+  // Someone who logged in to unlock a side-shoot goes straight back to it.
+  try {
+    const back = localStorage.getItem('uah_return_to');
+    if (back) {
+      localStorage.removeItem('uah_return_to');
+      if (/^side-shoot-submission\.html\?theme=[a-z-]+$/.test(back)) { window.location.replace(back); return; }
+    }
+  } catch (e) {}
+
   let passed = new Set();
   try {
     const progress = await (await fetch('/api/lessons/progress')).json();
@@ -222,13 +233,19 @@ async function startCheckout(product, button) {
       </div>`;
   }).join('');
 
+  const ownedSideshoots = data.ownedSideshoots || [];
+  const sideshootsHtml = ownedSideshoots.length ? `
+    <div class="tier">
+      <div class="tier-head"><h2>Your side-shoots</h2></div>
+      ${ownedSideshoots.map(slug => `<a href="side-shoot-submission.html?theme=${encodeURIComponent(slug)}" class="lesson-link">${escapeHtml(SIDESHOOT_TITLES[slug] || slug)}</a>`).join('')}
+    </div>` : '';
   const hasAnyTier = owned.size > 0;
   const creditsHtml = data.isAdmin ? '' : `
     <div class="field" style="margin-top:20px;">
       <div class="field-label">Tutor conversations left</div>
       <div class="credits">${data.conversationCredits || 0}</div>
       <p class="tier-note">One conversation is one upload of your work plus the follow-up that comes with it.</p>
-      ${hasAnyTier ? `<button class="buy" data-product="credits:5" style="margin-top:12px;background:transparent;color:var(--moss-dark);border:1px solid var(--moss);">Top up 5 more for £4</button>` : ''}
+      ${(hasAnyTier || ownedSideshoots.length) ? `<button class="buy" data-product="credits:5" style="margin-top:12px;background:transparent;color:var(--moss-dark);border:1px solid var(--moss);">Top up 5 more for £4</button>` : ''}
     </div>`;
 
   card.innerHTML = `
@@ -241,6 +258,7 @@ async function startCheckout(product, button) {
       ${data.isAdmin ? '<span class="status-badge" style="background:var(--clay);color:#fff;margin-top:8px;">Admin access</span>' : ''}
     </div>
     ${creditsHtml}
+    ${sideshootsHtml}
     ${tiersHtml}
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:14px;">
       <a href="uah-side-shoots-gallery.html">Browse side-shoots</a>
