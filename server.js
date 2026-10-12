@@ -28,7 +28,7 @@ function getProduct(productKey) {
   if (typeof productKey === 'string' && productKey.startsWith('sideshoot:')) {
     const slug = productKey.slice('sideshoot:'.length);
     const theme = SIDESHOOT_THEMES[slug];
-    if (theme) return { name: `UAH side-shoot: ${theme.title}`, amount: SIDESHOOT_PRICE_PENCE, credits: SIDESHOOT_CREDITS, sideshoot: slug };
+    if (theme && !theme.free) return { name: `UAH side-shoot: ${theme.title}`, amount: SIDESHOOT_PRICE_PENCE, credits: SIDESHOOT_CREDITS, sideshoot: slug };
   }
   return null;
 }
@@ -54,6 +54,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
+      if (session.metadata && session.metadata.cardOrderId) {
+        if (session.payment_status === 'paid') await fulfilCardOrder(session);
+        return res.json({ received: true });
+      }
       const productKey = session.metadata && session.metadata.productKey;
       const product = getProduct(productKey);
       const userId = parseInt(session.client_reference_id, 10);
@@ -182,6 +186,24 @@ async function initSchema() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS card_orders (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        visitor_hash TEXT,
+        theme TEXT NOT NULL,
+        image TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        stripe_session_id TEXT UNIQUE,
+        customer_email TEXT,
+        shipping JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        paid_at TIMESTAMPTZ
+      );
+    `);
+    // Unpaid orders (checkout started, never finished) only hold an image, so clear them out.
+    await pool.query(`DELETE FROM card_orders WHERE status = 'pending' AND created_at < NOW() - INTERVAL '3 days'`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS free_sideshoots (
         id SERIAL PRIMARY KEY,
@@ -705,7 +727,10 @@ const SIDESHOOT_THEMES = {
   "old-photograph": { title: "An Old Photograph", brief: "The photo itself, not just the memory inside it — creases, tone, and all. This is about drawing an object, not a scene." },
   "familiar-doorway": { title: "The Door You Know", brief: "The one you've walked through a thousand times, really looked at once. This is about perspective and proportion on a subject you know too well to actually see." },
   "worn-shoes": { title: "Well-Worn Shoes", brief: "Every scuff a small piece of honest history. This is about capturing wear and use, not a clean product shot." },
-  "everyday-cup": { title: "The Cup You Always Reach For", brief: "Chips and all — that's exactly the point. This is about drawing a familiar object honestly, flaws included." }
+  "everyday-cup": { title: "The Cup You Always Reach For", brief: "Chips and all — that's exactly the point. This is about drawing a familiar object honestly, flaws included." },
+  // Seasonal and free to everyone: it doesn't use up anyone's one free side-shoot, and
+  // can't be bought. The finished design can be ordered as printed cards.
+  "christmas-card": { title: "Design a Christmas Card", free: true, brief: "A festive design for the front of a card, in portrait shape. It will be printed small, so one clear idea reads better than lots of detail, with a little breathing space around the edges. Warmth and personality matter more than polish." }
 };
 
 function getTheme(slug){
@@ -796,6 +821,109 @@ async function callClaudeMessages(systemPrompt, messages, maxTokens, expectJSON 
   return parsed;
 }
 
+// ============ PRINTED CARD ORDERS ============
+// A student's finished design, printed as a pack of cards. Ordering doesn't need an
+// account: Stripe collects the email and a UK delivery address. The design is held in
+// the database until payment arrives, then emailed to UAH with the address to fulfil.
+const CARD_PACK = { name: 'Pack of 10 cards of your own design, with envelopes', amount: 1795, packSize: 10 };
+// Last day to order for Christmas delivery. Change in Render (CARD_ORDER_CUTOFF=YYYY-MM-DD).
+const CARD_ORDER_CUTOFF = process.env.CARD_ORDER_CUTOFF || '2026-12-12';
+const CARD_NOTIFY_EMAIL = process.env.CARD_NOTIFY_EMAIL || process.env.REWARD_NOTIFY_EMAIL || 'david@ulverstonarthouse.co.uk';
+const MAX_PRINT_IMAGE_CHARS = 7 * 1024 * 1024; // base64 length, roughly a 5MB photo
+
+function cardOrdersOpen() {
+  return new Date() <= new Date(CARD_ORDER_CUTOFF + 'T23:59:59Z');
+}
+
+app.post('/api/cards/checkout', async (req, res) => {
+  try {
+    const { theme: slug, image, mediaType } = req.body;
+    const theme = SIDESHOOT_THEMES[slug];
+    if (!theme || !theme.free) return res.status(400).json({ error: 'Cards can only be ordered from the Christmas card side-shoot.' });
+    if (!cardOrdersOpen()) return res.status(400).json({ error: 'Christmas card orders have now closed for this year.' });
+    if (!image || !['image/jpeg', 'image/png'].includes(mediaType)) return res.status(400).json({ error: 'Please upload a photo of your design first.' });
+    if (image.length > MAX_PRINT_IMAGE_CHARS) return res.status(400).json({ error: 'That photo is too large. Please try a smaller one.' });
+
+    const hash = visitorHash(req);
+    const recent = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM card_orders WHERE visitor_hash = $1 AND status = 'pending' AND created_at > NOW() - INTERVAL '1 day'`,
+      [hash]
+    );
+    if (recent.rows[0].n >= 10) return res.status(429).json({ error: 'Too many unfinished orders today. Please try again tomorrow.' });
+
+    const user = await getSessionUser(req);
+    const order = await pool.query(
+      `INSERT INTO card_orders (user_id, visitor_hash, theme, image, media_type) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [user ? user.id : null, hash, slug, image, mediaType]
+    );
+    const orderId = order.rows[0].id;
+    const back = `${SITE_URL}/side-shoot-submission.html?theme=${encodeURIComponent(slug)}&`;
+
+    const sessionParams = {
+      mode: 'payment',
+      line_items: [{
+        price_data: { currency: 'gbp', unit_amount: CARD_PACK.amount, product_data: { name: CARD_PACK.name, description: 'Printed from your own design. Includes UK postage.' } },
+        quantity: 1
+      }],
+      shipping_address_collection: { allowed_countries: ['GB'] },
+      success_url: `${back}order=success`,
+      cancel_url: `${back}order=cancelled`,
+      metadata: { cardOrderId: String(orderId) }
+    };
+    if (user && user.stripe_customer_id) sessionParams.customer = user.stripe_customer_id;
+    else if (user) sessionParams.customer_email = user.email;
+
+    const checkoutSession = await stripeClient.checkout.sessions.create(sessionParams);
+    await pool.query(`UPDATE card_orders SET stripe_session_id = $1 WHERE id = $2`, [checkoutSession.id, orderId]);
+    res.json({ url: checkoutSession.url });
+  } catch (err) {
+    console.error('cards checkout error:', err);
+    res.status(500).json({ error: 'Could not start your order. Please try again.' });
+  }
+});
+
+// Runs from the Stripe webhook. Marking the order paid only if it was still pending means
+// a repeated webhook can't send the order email twice.
+async function fulfilCardOrder(session) {
+  const orderId = parseInt(session.metadata.cardOrderId, 10);
+  const details = (session.collected_information && session.collected_information.shipping_details) || session.shipping_details || {};
+  const addr = details.address || {};
+  const email = (session.customer_details && session.customer_details.email) || session.customer_email || '';
+  const shipping = { name: details.name || '', line1: addr.line1 || '', line2: addr.line2 || '', city: addr.city || '', postcode: addr.postal_code || '', country: addr.country || '' };
+
+  const updated = await pool.query(
+    `UPDATE card_orders SET status = 'paid', paid_at = NOW(), customer_email = $1, shipping = $2
+     WHERE id = $3 AND status = 'pending' RETURNING image, media_type`,
+    [email, JSON.stringify(shipping), orderId]
+  );
+  if (!updated.rows.length) return; // already handled
+
+  const { image, media_type } = updated.rows[0];
+  const ext = media_type === 'image/png' ? 'png' : 'jpg';
+  const addressHtml = [shipping.name, shipping.line1, shipping.line2, shipping.city, shipping.postcode].filter(Boolean).map(escapeHtml).join('<br>');
+
+  if (!RESEND_API_KEY) { console.error(`Card order #${orderId} paid, but no RESEND_API_KEY is set to email it.`); return; }
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'UAH Academy <academy@mail.ulverstonarthouse.co.uk>',
+      to: [CARD_NOTIFY_EMAIL],
+      reply_to: email || undefined,
+      subject: `Christmas card order #${orderId}: ${CARD_PACK.packSize} cards, paid`,
+      html: `<p>A customer has paid £${(CARD_PACK.amount / 100).toFixed(2)} for a pack of ${CARD_PACK.packSize} Christmas cards printed from their own design.</p>
+<p><b>Order:</b> #${orderId}<br><b>Customer email:</b> ${escapeHtml(email)}</p>
+<p><b>Send the cards to:</b><br>${addressHtml}</p>
+<p>Their design is attached exactly as they photographed it. It may need cropping or straightening before printing.</p>`,
+      attachments: [{ content: image, filename: `card-order-${orderId}.${ext}` }]
+    })
+  });
+  if (!response.ok) {
+    // Leave the order marked paid (the customer has paid); the details stay in the database.
+    console.error(`Card order #${orderId} paid, but the order email failed: ${response.status} ${await response.text()}`);
+  }
+}
+
 // ============ SIDE-SHOOT ACCESS ============
 // Three ways to be allowed feedback on a side-shoot:
 //  - "owned": logged in and either bought this side-shoot, own any Academy tier, or admin.
@@ -820,6 +948,7 @@ async function getSideshootOwnership(user, slug) {
 
 async function getSideshootAccess(req, slug) {
   const user = await getSessionUser(req);
+  if (SIDESHOOT_THEMES[slug] && SIDESHOOT_THEMES[slug].free) return { mode: 'seasonal', user, freeTheme: null };
   if (await getSideshootOwnership(user, slug)) return { mode: 'owned', user };
   const trial = await pool.query(`SELECT theme FROM free_sideshoots WHERE visitor_hash = $1`, [visitorHash(req)]);
   if (!trial.rows.length) return { mode: 'free', user, freeTheme: null };
@@ -836,6 +965,10 @@ function sideshootGate(isNewUpload) {
       if (access.mode === 'locked') {
         const freeTitle = SIDESHOOT_THEMES[access.freeTheme] ? SIDESHOOT_THEMES[access.freeTheme].title : 'another side-shoot';
         return res.status(402).json({ error: `Your free side-shoot was "${freeTitle}". You can unlock this one for £5 at the top of this page.`, locked: true });
+      }
+      if (access.mode === 'seasonal') {
+        // free for everyone, but still covered by the daily limit on free feedback
+        return sideshootRateLimit(req, res, next);
       }
       if (access.mode === 'owned') {
         const spend = isNewUpload
@@ -894,7 +1027,8 @@ app.get('/api/sideshoot/access', async (req, res) => {
       isAdmin: !!(access.user && access.user.is_admin),
       freeTheme: access.freeTheme,
       freeThemeTitle: access.freeTheme && SIDESHOOT_THEMES[access.freeTheme] ? SIDESHOOT_THEMES[access.freeTheme].title : null,
-      price: SIDESHOOT_PRICE_PENCE / 100
+      price: SIDESHOOT_PRICE_PENCE / 100,
+      cards: SIDESHOOT_THEMES[slug].free ? { price: CARD_PACK.amount / 100, packSize: CARD_PACK.packSize, orderBy: CARD_ORDER_CUTOFF, open: cardOrdersOpen() } : null
     });
   } catch (err) {
     console.error('sideshoot access error:', err);
@@ -1293,7 +1427,7 @@ const ACADEMY_FACTS = `
 - Feedback is AI-assisted: the AI looks at the student's actual photo each time and gives critique tuned to the stage of the course. The founder is personally involved at real milestones, not every submission.
 - Completing the Beginner tier earns a free greetings card of the student's own work, posted by UAH.
 - Optional extras for finished work, all including UK postage: the work printed on a mug for £16, a pack of 10 greetings cards for £17.95, or a framed print for £47.95, framed at Ulverston Art House.
-- A free "Design a Christmas card" side-shoot is opening soon; cards printed from it are priced as normal.
+- "Design a Christmas card" is a seasonal side-shoot that is free for everyone, with feedback, and doesn't use up the one free side-shoot. Once finished, the design can be ordered as a pack of 10 printed cards with envelopes for £17.95 including UK postage, ordered from the side-shoot page without needing an account. Orders for Christmas close on ${CARD_ORDER_CUTOFF} (UK delivery only).
 - Art materials: students can use whatever they have. Each course links to matching kits from UAH's partner Artway, and UAH may earn a small commission on kits bought through those links.
 - Students keep full copyright of everything they make. Showing work in the community gallery is optional.
 - The Academy leads toward a planned exhibition series called "The Shape of Things to Come", where Advanced students can choose to show and sell work in a real venue. The venue isn't finalised yet; UAH is in conversation with venues in Lancaster, Carlisle and at Rheged.

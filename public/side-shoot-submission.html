@@ -372,6 +372,14 @@
   .access-panel .unlock-btn:hover{background:var(--moss-dark);}
   .access-panel .unlock-btn:disabled{opacity:0.6;cursor:wait;}
   .access-panel .small{font-size:13.5px;color:var(--ink-soft);}
+  .card-order{margin:26px 0 8px;padding:20px;background:var(--paper);border:1px solid var(--line);border-top:3px solid #7A1F24;display:grid;grid-template-columns:120px 1fr;gap:18px;align-items:start;}
+  .card-order img{width:120px;aspect-ratio:5/7;object-fit:cover;box-shadow:0 6px 16px rgba(0,0,0,0.18);background:#fff;}
+  .card-order h2{font-family:'Fraunces',serif;font-weight:500;font-size:22px;margin:0 0 6px 0;}
+  .card-order p{margin:0 0 10px 0;font-size:15px;line-height:1.55;}
+  .card-order .unlock-btn{background:#7A1F24;color:#fff;border:none;padding:12px 22px;font-family:'Work Sans',sans-serif;font-weight:600;font-size:15px;border-radius:2px;cursor:pointer;min-height:44px;}
+  .card-order .unlock-btn:disabled{opacity:0.6;cursor:wait;}
+  .card-order .small{font-size:13.5px;color:var(--ink-soft);}
+  @media (max-width:560px){ .card-order{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -407,6 +415,7 @@
   <div class="error" id="error"></div>
 
   <div id="feedback"></div>
+  <div class="card-order" id="cardOrder" style="display:none;" aria-live="polite"></div>
   <div class="more-detail-row" id="moreDetailRow" style="display:none;">
     <button id="moreDetailBtn">Want more detail? I can go deeper on this.</button>
   </div>
@@ -613,6 +622,17 @@ const THEMES = {
     ],
     swatches: [["#8A4E28","#D98F5E"], ["#5C321A","#C97B4E"], ["#3A1E0E","#8A5230"]],
     nudge: "Draw the wear, not just the shape — that's what makes it *your* cup."
+  },
+  "christmas-card": {
+    title: "Design a Christmas Card",
+    brief: "A festive design for the front of a card, in portrait shape. It will be printed small, so one clear idea reads better than lots of detail, with a little breathing space around the edges. Warmth and personality matter more than polish.",
+    cues: [
+      "One thing that says Christmas to you: a robin, a window, a tree in the dark",
+      "Work in portrait, roughly the shape of a 5×7 card",
+      "Leave a little space around the edges; printing trims a sliver off"
+    ],
+    swatches: [["#7A1F24","#E8C9A0"], ["#1E3B2F","#C9A227"], ["#22304A","#F2EEE6"]],
+    nudge: "Simple and heartfelt beats busy. Imagine it on a mantelpiece across the room."
   }
 };
 
@@ -665,6 +685,22 @@ let conversationHistory = [];
 const moreDetailBtn = document.getElementById('moreDetailBtn');
 
 let imageBase64 = null;
+// A larger copy kept only for printing cards; feedback uses the smaller one above.
+let latestPrint = null;
+let pendingRevisionPrint = null;
+function makePrintCopy(img){
+  const maxDim = 2400;
+  let w = img.width, h = img.height;
+  if (w > maxDim || h > maxDim) {
+    const scale = maxDim / Math.max(w, h);
+    w = Math.round(w * scale); h = Math.round(h * scale);
+  }
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(img, 0, 0, w, h);
+  const url = c.toDataURL('image/jpeg', 0.92);
+  return { dataUrl: url, base64: url.split(',')[1], width: w, height: h };
+}
 let imageMediaType = null;
 let priorImageBase64 = null;
 let priorImageMediaType = null;
@@ -701,6 +737,7 @@ function handleFile(file){
       const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       imageBase64 = dataUrl.split(',')[1];
       imageMediaType = 'image/jpeg';
+      latestPrint = makePrintCopy(img);
 
       drop.classList.add('has-image');
       drop.innerHTML = '';
@@ -801,6 +838,7 @@ submitBtn.addEventListener('click', async () => {
     if (!response.ok) throw new Error(parsed.error || 'Request failed (' + response.status + ')');
 
     renderFeedback(parsed);
+    if (window.onSideshootFeedback) window.onSideshootFeedback();
     lastFeedback = parsed;
     priorImageBase64 = imageBase64;
     priorImageMediaType = imageMediaType;
@@ -916,6 +954,7 @@ function handleRevisionFile(file){
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       const revisedBase64 = dataUrl.split(',')[1];
+      pendingRevisionPrint = makePrintCopy(img);
       submitRevision(revisedBase64, 'image/jpeg', dataUrl);
     };
     img.src = e.target.result;
@@ -946,6 +985,8 @@ async function submitRevision(revisedBase64, mediaType, previewDataUrl){
 
     revisionRound += 1;
     renderRevisionFeedback(parsed, previewDataUrl, revisionRound);
+    if (pendingRevisionPrint) { latestPrint = pendingRevisionPrint; pendingRevisionPrint = null; }
+    if (window.onSideshootFeedback) window.onSideshootFeedback();
 
     // this round's new image becomes the baseline for the next comparison
     priorImageBase64 = revisedBase64;
@@ -1118,6 +1159,50 @@ function renderMoreDetail(details){
   const area = document.getElementById('submitArea');
   const params = new URLSearchParams(window.location.search);
   const checkout = params.get('checkout');
+  const orderStatus = params.get('order');
+
+  function setupCardOrders(cards){
+    if (!cards) return;
+    const box = document.getElementById('cardOrder');
+    const orderBy = new Date(cards.orderBy + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+    window.onSideshootFeedback = () => {
+      if (!latestPrint) return;
+      if (!cards.open) {
+        box.innerHTML = '<div></div><div><h2>Card orders have closed</h2><p>Christmas card orders closed on ' + esc(orderBy) + '. Your design is still yours to keep, and the feedback still stands.</p></div>';
+        box.style.display = 'grid';
+        return;
+      }
+      const portrait = latestPrint.height >= latestPrint.width;
+      box.innerHTML = `
+        <img src="${latestPrint.dataUrl}" alt="Your design">
+        <div>
+          <h2>Turn it into real cards</h2>
+          <p>A pack of ${cards.packSize} cards printed from this design, blank inside, with envelopes. <b>£${cards.price.toFixed(2)}</b> including UK postage.</p>
+          <p class="small">Order by ${esc(orderBy)} for Christmas. The photo you uploaded last is the one that's printed, so crop it close to your design and make sure it's straight and evenly lit.${portrait ? '' : ' <b>This photo is landscape:</b> cards are portrait, so it will be cropped to fit unless you upload a portrait version.'}</p>
+          <button class="unlock-btn" id="orderCardsBtn">Order ${cards.packSize} cards for £${cards.price.toFixed(2)}</button>
+        </div>`;
+      box.style.display = 'grid';
+      const btn = document.getElementById('orderCardsBtn');
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'Opening checkout…';
+        try {
+          const r = await fetch('/api/cards/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme: themeSlug, image: latestPrint.base64, mediaType: 'image/jpeg' })
+          });
+          const result = await r.json();
+          if (!r.ok) throw new Error(result.error || 'Something went wrong.');
+          window.location.href = result.url;
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = 'Order ' + cards.packSize + ' cards for £' + cards.price.toFixed(2);
+          alert(err.message);
+        }
+      });
+    };
+  }
   const cleanReturn = 'side-shoot-submission.html?theme=' + encodeURIComponent(themeSlug);
 
   function esc(t){ return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -1155,6 +1240,14 @@ function renderMoreDetail(details){
   }
 
   function render(a){
+    if (a.mode === 'seasonal') {
+      setupCardOrders(a.cards);
+      const notice = orderStatus === 'success'
+        ? '<p><b>Thank you, your cards are ordered.</b> Your receipt is on its way by email. Ulverston Art House will print and post them, and will get in touch if anything about the image needs checking.</p>'
+        : orderStatus === 'cancelled' ? '<p class="small">Your card order was cancelled and you haven\'t been charged.</p>' : '';
+      show(notice + '<p><b>This seasonal side-shoot is free for everyone</b>, with no account needed, and it doesn\'t use up your free side-shoot. When you\'re happy with your design, you can order it as real printed cards.</p>', false);
+      return;
+    }
     if (a.mode === 'owned') {
       const thanks = checkout === 'success' ? '<p><b>Thank you, this side-shoot is yours.</b></p>' : '';
       const credits = a.isAdmin ? '' : `<p class="small">Tutor conversations left: ${a.conversationCredits}. One conversation is one upload plus the follow-up that comes with it.</p>`;
