@@ -104,6 +104,10 @@ async function recordPurchase(userId, productKey, product, session) {
   }
 }
 
+// The Card Studio sends a full print file (7086 × 2526 px) with an order, so that one
+// route accepts a larger body. Registered first: the general parser below skips a body
+// that has already been read.
+app.use('/api/cards/checkout', express.json({ limit: '30mb' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -202,6 +206,7 @@ async function initSchema() {
         paid_at TIMESTAMPTZ
       );
     `);
+    await pool.query(`ALTER TABLE card_orders ADD COLUMN IF NOT EXISTS preview TEXT;`);
     // Unpaid orders (checkout started, never finished) only hold an image, so clear them out.
     await pool.query(`DELETE FROM card_orders WHERE status = 'pending' AND created_at < NOW() - INTERVAL '3 days'`);
     await pool.query(`
@@ -829,7 +834,8 @@ const CARD_PACK = { name: 'Pack of 10 cards of your own design, with envelopes',
 // Last day to order for Christmas delivery. Change in Render (CARD_ORDER_CUTOFF=YYYY-MM-DD).
 const CARD_ORDER_CUTOFF = process.env.CARD_ORDER_CUTOFF || '2026-12-12';
 const CARD_NOTIFY_EMAIL = process.env.CARD_NOTIFY_EMAIL || process.env.REWARD_NOTIFY_EMAIL || 'david@ulverstonarthouse.co.uk';
-const MAX_PRINT_IMAGE_CHARS = 7 * 1024 * 1024; // base64 length, roughly a 5MB photo
+const MAX_PRINT_IMAGE_CHARS = 26 * 1024 * 1024; // base64 length; a studio print file is usually 4-8MB
+const MAX_PREVIEW_CHARS = 1.5 * 1024 * 1024;
 
 function cardOrdersOpen() {
   return new Date() <= new Date(CARD_ORDER_CUTOFF + 'T23:59:59Z');
@@ -837,12 +843,16 @@ function cardOrdersOpen() {
 
 app.post('/api/cards/checkout', async (req, res) => {
   try {
-    const { theme: slug, image, mediaType } = req.body;
-    const theme = SIDESHOOT_THEMES[slug];
-    if (!theme || !theme.free) return res.status(400).json({ error: 'Cards can only be ordered from the Christmas card side-shoot.' });
+    // From the Card Studio: a finished print file plus a small preview of the front.
+    // Older side-shoot pages send a single photo with a theme instead; both still work.
+    const { image, mediaType, preview } = req.body;
+    const fromStudio = req.body.source === 'studio';
+    const slug = fromStudio ? 'card-studio' : req.body.theme;
+    if (!fromStudio && !(SIDESHOOT_THEMES[slug] && SIDESHOOT_THEMES[slug].free)) return res.status(400).json({ error: 'Cards can only be ordered from the Card Studio.' });
     if (!cardOrdersOpen()) return res.status(400).json({ error: 'Christmas card orders have now closed for this year.' });
-    if (!image || !['image/jpeg', 'image/png'].includes(mediaType)) return res.status(400).json({ error: 'Please upload a photo of your design first.' });
-    if (image.length > MAX_PRINT_IMAGE_CHARS) return res.status(400).json({ error: 'That photo is too large. Please try a smaller one.' });
+    if (!image || !['image/jpeg', 'image/png'].includes(mediaType)) return res.status(400).json({ error: 'Your design is missing. Please try again.' });
+    if (image.length > MAX_PRINT_IMAGE_CHARS) return res.status(400).json({ error: 'That design is too large to send. Please use a smaller photo.' });
+    if (preview && preview.length > MAX_PREVIEW_CHARS) return res.status(400).json({ error: 'Preview image too large.' });
 
     const hash = visitorHash(req);
     const recent = await pool.query(
@@ -853,16 +863,16 @@ app.post('/api/cards/checkout', async (req, res) => {
 
     const user = await getSessionUser(req);
     const order = await pool.query(
-      `INSERT INTO card_orders (user_id, visitor_hash, theme, image, media_type) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [user ? user.id : null, hash, slug, image, mediaType]
+      `INSERT INTO card_orders (user_id, visitor_hash, theme, image, media_type, preview) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [user ? user.id : null, hash, slug, image, mediaType, preview || null]
     );
     const orderId = order.rows[0].id;
-    const back = `${SITE_URL}/side-shoot-submission.html?theme=${encodeURIComponent(slug)}&`;
+    const back = fromStudio ? `${SITE_URL}/card-studio.html?` : `${SITE_URL}/side-shoot-submission.html?theme=${encodeURIComponent(slug)}&`;
 
     const sessionParams = {
       mode: 'payment',
       line_items: [{
-        price_data: { currency: 'gbp', unit_amount: CARD_PACK.amount, product_data: { name: CARD_PACK.name, description: 'Printed from your own design. Includes UK postage.' } },
+        price_data: { currency: 'gbp', unit_amount: CARD_PACK.amount, product_data: { name: CARD_PACK.name, description: 'A5 folded cards printed from your own design. Includes UK postage.' } },
         quantity: 1
       }],
       shipping_address_collection: { allowed_countries: ['GB'] },
@@ -893,12 +903,13 @@ async function fulfilCardOrder(session) {
 
   const updated = await pool.query(
     `UPDATE card_orders SET status = 'paid', paid_at = NOW(), customer_email = $1, shipping = $2
-     WHERE id = $3 AND status = 'pending' RETURNING image, media_type`,
+     WHERE id = $3 AND status = 'pending' RETURNING image, media_type, preview, theme`,
     [email, JSON.stringify(shipping), orderId]
   );
   if (!updated.rows.length) return; // already handled
 
-  const { image, media_type } = updated.rows[0];
+  const { image, media_type, preview, theme: orderSource } = updated.rows[0];
+  const fromStudio = orderSource === 'card-studio';
   const ext = media_type === 'image/png' ? 'png' : 'jpg';
   const addressHtml = [shipping.name, shipping.line1, shipping.line2, shipping.city, shipping.postcode].filter(Boolean).map(escapeHtml).join('<br>');
 
@@ -914,8 +925,13 @@ async function fulfilCardOrder(session) {
       html: `<p>A customer has paid £${(CARD_PACK.amount / 100).toFixed(2)} for a pack of ${CARD_PACK.packSize} Christmas cards printed from their own design.</p>
 <p><b>Order:</b> #${orderId}<br><b>Customer email:</b> ${escapeHtml(email)}</p>
 <p><b>Send the cards to:</b><br>${addressHtml}</p>
-<p>Their design is attached exactly as they photographed it. It may need cropping or straightening before printing.</p>`,
-      attachments: [{ content: image, filename: `card-order-${orderId}.${ext}` }]
+${fromStudio
+  ? '<p>Designed in the Card Studio. The attached print file is ready for Prodigi: A5 folded card, 7086 × 2526 px, four panels left to right: back, front, inside left, inside right. A small picture of the front is attached too.</p>'
+  : '<p>Their design is attached exactly as they photographed it. It may need cropping or straightening before printing.</p>'}`,
+      attachments: [
+        { content: image, filename: fromStudio ? `card-order-${orderId}-print-A5.${ext}` : `card-order-${orderId}.${ext}` },
+        ...(preview ? [{ content: preview, filename: `card-order-${orderId}-front-preview.jpg` }] : [])
+      ]
     })
   });
   if (!response.ok) {
@@ -923,6 +939,43 @@ async function fulfilCardOrder(session) {
     console.error(`Card order #${orderId} paid, but the order email failed: ${response.status} ${await response.text()}`);
   }
 }
+
+// Prices and the order deadline, for the Card Studio page.
+app.get('/api/cards/info', (req, res) => {
+  res.json({ price: CARD_PACK.amount / 100, packSize: CARD_PACK.packSize, orderBy: CARD_ORDER_CUTOFF, open: cardOrdersOpen() });
+});
+
+// The Card Studio's tutor on standby. Free, so it has its own daily limit per connection.
+const studioTutorHits = new Map();
+const STUDIO_TUTOR_DAILY = 25;
+const STUDIO_TUTOR_PROMPT = `You are the friendly tutor at UAH Academy, run by Ulverston Art House, a gallery and framing studio in Ulverston, Cumbria. Someone is designing a Christmas card in the UAH Card Studio. The image attached to their latest message is the current front of their card exactly as it will print: an A5 portrait folded card, 148 × 210 mm. Their picture may be their own painting or drawing, or a photo.
+Help with what they ask. That might be design (layout, how readable the greeting is at card size, colour, balance, spacing) or the artwork itself. Look closely at the actual image and refer to what you see. Be warm, specific and brief: two to four short sentences, with one clear suggestion they can try now. Where it helps, name the studio's tools: the Layout, Picture, Text, Decorate and Colour tabs, and the Inside and Back of the card. Never invent details you can't see. If they ask about something unrelated to their card or art, gently steer back. Plain text only, no headings or bullet points.`;
+
+app.post('/api/cards/tutor', async (req, res) => {
+  try {
+    const now = Date.now(), key = visitorHash(req);
+    let hits = studioTutorHits.get(key);
+    if (!hits || now - hits.start > 24 * 3600 * 1000) hits = { start: now, n: 0 };
+    if (hits.n >= STUDIO_TUTOR_DAILY) return res.status(429).json({ error: "You've asked the tutor a lot today. Please come back tomorrow for more." });
+
+    const { messages, image, context } = req.body;
+    if (!Array.isArray(messages) || !messages.length || messages[messages.length - 1].role !== 'user') return res.status(400).json({ error: 'Missing question.' });
+    const turns = messages.slice(-10).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '').slice(0, 2000) }));
+    if (turns[0].role !== 'user') turns.shift();
+    const last = turns[turns.length - 1];
+    const note = context ? `\n\n(About the card right now: ${String(context).slice(0, 800)})` : '';
+    last.content = image
+      ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } }, { type: 'text', text: last.content + note }]
+      : last.content + note;
+
+    hits.n += 1; studioTutorHits.set(key, hits);
+    const reply = await callClaudeMessages(STUDIO_TUTOR_PROMPT, turns, 500, false);
+    res.json({ reply });
+  } catch (err) {
+    console.error('card studio tutor error:', err);
+    res.status(500).json({ error: 'The tutor couldn’t answer just now. Please try again.' });
+  }
+});
 
 // ============ SIDE-SHOOT ACCESS ============
 // Three ways to be allowed feedback on a side-shoot:
@@ -1427,7 +1480,7 @@ const ACADEMY_FACTS = `
 - Feedback is AI-assisted: the AI looks at the student's actual photo each time and gives critique tuned to the stage of the course. The founder is personally involved at real milestones, not every submission.
 - Completing the Beginner tier earns a free greetings card of the student's own work, posted by UAH.
 - Optional extras for finished work, all including UK postage: the work printed on a mug for £16, a pack of 10 greetings cards for £17.95, or a framed print for £47.95, framed at Ulverston Art House.
-- "Design a Christmas card" is a seasonal side-shoot that is free for everyone, with feedback, and doesn't use up the one free side-shoot. Once finished, the design can be ordered as a pack of 10 printed cards with envelopes for £17.95 including UK postage, ordered from the side-shoot page without needing an account. Orders for Christmas close on ${CARD_ORDER_CUTOFF} (UK delivery only).
+- The UAH Card Studio (card-studio.html) lets anyone design their own Christmas card in the browser, with no account: choose a layout, add their own painting or a photo, greetings, decorations and an inside message, see a live preview, and ask the tutor for advice as they go. The finished card can be ordered as a pack of 10 A5 folded cards with envelopes for £17.95 including UK postage (UK delivery only). Orders for Christmas close on ${CARD_ORDER_CUTOFF}. There is also a free "Design a Christmas card" side-shoot for getting feedback on a painting before taking it into the studio; it doesn't use up the one free side-shoot.
 - Art materials: students can use whatever they have. Each course links to matching kits from UAH's partner Artway, and UAH may earn a small commission on kits bought through those links.
 - Students keep full copyright of everything they make. Showing work in the community gallery is optional.
 - The Academy leads toward a planned exhibition series called "The Shape of Things to Come", where Advanced students can choose to show and sell work in a real venue. The venue isn't finalised yet; UAH is in conversation with venues in Lancaster, Carlisle and at Rheged.
