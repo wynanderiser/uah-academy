@@ -1172,34 +1172,19 @@ function renderMoreDetail(details){
         box.style.display = 'grid';
         return;
       }
-      const portrait = latestPrint.height >= latestPrint.width;
       box.innerHTML = `
         <img src="${latestPrint.dataUrl}" alt="Your design">
         <div>
           <h2>Turn it into real cards</h2>
-          <p>A pack of ${cards.packSize} cards printed from this design, blank inside, with envelopes. <b>£${cards.price.toFixed(2)}</b> including UK postage.</p>
-          <p class="small">Order by ${esc(orderBy)} for Christmas. The photo you uploaded last is the one that's printed, so crop it close to your design and make sure it's straight and evenly lit.${portrait ? '' : ' <b>This photo is landscape:</b> cards are portrait, so it will be cropped to fit unless you upload a portrait version.'}</p>
-          <button class="unlock-btn" id="orderCardsBtn">Order ${cards.packSize} cards for £${cards.price.toFixed(2)}</button>
+          <p>Take your painting into the Card Studio: choose a layout, add your greeting and a message inside, and see the finished card before you order. A pack of ${cards.packSize} costs <b>£${cards.price.toFixed(2)}</b> including UK postage.</p>
+          <p class="small">Order by ${esc(orderBy)} for Christmas. The photo you uploaded last is the one that goes into the studio.</p>
+          <button class="unlock-btn" id="orderCardsBtn">Open in the Card Studio</button>
         </div>`;
       box.style.display = 'grid';
-      const btn = document.getElementById('orderCardsBtn');
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        btn.textContent = 'Opening checkout…';
-        try {
-          const r = await fetch('/api/cards/checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ theme: themeSlug, image: latestPrint.base64, mediaType: 'image/jpeg' })
-          });
-          const result = await r.json();
-          if (!r.ok) throw new Error(result.error || 'Something went wrong.');
-          window.location.href = result.url;
-        } catch (err) {
-          btn.disabled = false;
-          btn.textContent = 'Order ' + cards.packSize + ' cards for £' + cards.price.toFixed(2);
-          alert(err.message);
-        }
+      document.getElementById('orderCardsBtn').addEventListener('click', () => {
+        try { localStorage.setItem('uah_card_studio_handoff', JSON.stringify({ image: latestPrint.dataUrl })); }
+        catch (e) { alert('Your browser could not pass the picture across. In the studio, choose Picture and add it there.'); }
+        window.location.href = 'card-studio.html';
       });
     };
   }
@@ -1245,7 +1230,7 @@ function renderMoreDetail(details){
       const notice = orderStatus === 'success'
         ? '<p><b>Thank you, your cards are ordered.</b> Your receipt is on its way by email. Ulverston Art House will print and post them, and will get in touch if anything about the image needs checking.</p>'
         : orderStatus === 'cancelled' ? '<p class="small">Your card order was cancelled and you haven\'t been charged.</p>' : '';
-      show(notice + '<p><b>This seasonal side-shoot is free for everyone</b>, with no account needed, and it doesn\'t use up your free side-shoot. When you\'re happy with your design, you can order it as real printed cards.</p>', false);
+      show(notice + '<p><b>This seasonal side-shoot is free for everyone</b>, with no account needed, and it doesn\'t use up your free side-shoot. When you\'re happy with it, take it into the Card Studio to turn it into real printed cards.</p>', false);
       return;
     }
     if (a.mode === 'owned') {
